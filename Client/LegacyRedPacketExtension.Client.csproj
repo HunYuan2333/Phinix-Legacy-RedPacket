@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>LegacyRedPacketExtension.Client</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="BuiltInLegacyRedPacketClientExtension.cs" />
+    <Compile Include="RedPacketLocalization.cs" />
+    <Compile Include="RedPacketStackTemplate.cs" />
+    <Compile Include="Properties/AssemblyInfo.cs" />
+    <Compile Include="RedPacket.cs" />
+    <Compile Include="RedPacketClaimRowLayout.cs" />
+    <Compile Include="RedPacketDetailWindow.cs" />
+    <Compile Include="RedPacketDropHelper.cs" />
+    <Compile Include="RedPacketInventoryCodec.cs" />
+    <Compile Include="RedPacketAvailableItem.cs" />
+    <Compile Include="RedPacketInventorySendStore.cs" />
+    <Compile Include="RedPacketInventorySending.cs" />
+    <Compile Include="RedPacketLimits.cs" />
+    <Compile Include="RedPacketRelay.cs" />
+    <Compile Include="RedPacketSettings.cs" />
+    <Compile Include="RedPacketSettingsPanel.cs" />
+    <Compile Include="RedPacketSnapshots.cs" />
+    <Compile Include="RedPacketStateMachine.cs" />
+    <Compile Include="RedPacketTab.cs" />
+    <Compile Include="RedPacketUnreadBadge.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameReferences)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Runtime.Serialization">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Xml">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameReferences)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameReferences)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(GameReferences)/UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(GameReferences)/UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="InventoryExtension">
+      <HintPath>$(PhinixPackage)/Common/Extensions/10-InventoryExtension.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <ProjectReference Include="../Contracts/LegacyRedPacketExtension.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <Reference Include="TradeExtension">
+      <HintPath>$(PhinixPackage)/Common/Extensions/09-TradeExtension.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="TradeExtension.Client">
+      <HintPath>$(PhinixPackage)/Common/Extensions/12-TradeExtension.Client.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ClientExtensionAbstractions">
+      <HintPath>$(PhinixPackage)/Common/Assemblies/10-ClientExtensionAbstractions.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UserManagement">
+      <HintPath>$(PhinixPackage)/Common/Assemblies/08-UserManagement.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Utils">
+      <HintPath>$(PhinixPackage)/Common/Assemblies/03-Utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

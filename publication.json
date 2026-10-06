@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "packageId": "phinix.legacy.redpacket",
+  "name": "Red packets",
+  "version": "1.0.0",
+  "ownerDirectory": "LegacyRedPacket",
+  "contractAssembly": "LegacyRedPacketExtension",
+  "clientAssembly": "LegacyRedPacketExtension.Client",
+  "moduleId": "builtin.legacy-redpacket",
+  "status": "candidate-not-admitted",
+  "legacyClientKeyPreserved": true,
+  "sourceVisibility": "private"
+}
