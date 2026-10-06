@@ -33,10 +33,10 @@
     "Contracts/RedPacketProtocol.cs": "5302205f5dc51651e6162c10d724d9e9e71fddc1ab6fb375aaf9d218b355b90a",
     "Contracts/RedPacketType.cs": "97833e372920ccef9694d579f4d9b1022d742651468f9b4f1c2e6774d4436b2a",
     "Directory.Build.props": "75cca0fa98bc028e2a981663db825ebcbb8143a4b114165eb2e2be83f3058c51",
-    "README.md": "a1f5d8c20551545913f45176b44adba1b06ba867c34de6963b5abc0b341b9ab9",
-    "README.zh-CN.md": "c6d9308c989f5ffc2609cad981542c3d2f85ec0dac5eb6117ef868ffd3567aec",
+    "README.md": "aee9412fd5d0cc21db40ec48a9ef07d77233f8cedb90c7192e95d4a146298e1a",
+    "README.zh-CN.md": "c22937d6617e5fd83c552a66fc57e0234ad6abeb517af099cce7c89059019e70",
     "check-source.py": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e",
     "pack.py": "32fca98b8570cbb0f901a5e3e5961ca1d89655716907211e1eff32b5f4d45dcb",
-    "publication.json": "16b47efff1848bb91aa574330889d394f370a0c3998d9be345044fa9a433e7f6"
+    "publication.json": "1be3584341ada497250207831995004b799f06cae10f1c6a63cef21087367443"
   }
 }

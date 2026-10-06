@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-维护者要求本源码仓库保持 **private**。二进制发行是另一个待接通的环节：目前匿名商店读取和准入检查要求公开发行来源。不要把源码仓库公开，也不要给游戏客户端放 GitHub 访问 token。私有源码仓库不能隐藏已发行 DLL 中的旧服务地址。
+维护者选择正常的 **public 源码与 GitHub Release** 路线。索引准入先做静态检查，再由维护者亲自添加 `plugin-approved`。不要给游戏客户端放 GitHub 访问 token；按维护者明确要求保留旧版连接参数。
 
 本仓库只包含一个旧版插件自己的 Contracts、Client 和语言资源，身份见 `publication.json`。它通过与第三方相同的 Phinix 扩展生命周期加载，是托管 DLL 包，不是工坊 Mod。
 
