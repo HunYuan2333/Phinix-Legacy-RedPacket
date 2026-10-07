@@ -1,32 +1,95 @@
-# Phinix 旧版插件
+# Phinix 旧版红包插件
 
-[English](README.md)
+<p align="center">
+  <a href="./README.md">English</a> · 简体中文
+</p>
 
-维护者选择正常的 **public 源码与 GitHub Release** 路线。索引准入先做静态检查，再由维护者亲自添加 `plugin-approved`。不要给游戏客户端放 GitHub 访问 token；按维护者明确要求保留旧版连接参数。
+Phinix 经典红包服务的官方托管插件移植版本（包 ID: `phinix.legacy.redpacket`），在 RimWorld 1.6 中提供殖民地间的物品红包发放、拼手气与等额领取功能。
 
-本仓库只包含一个旧版插件自己的 Contracts、Client 和语言资源，身份见 `publication.json`。它通过与第三方相同的 Phinix 扩展生命周期加载，是托管 DLL 包，不是工坊 Mod。
+---
 
-## 构建候选包
+## 概述与原作者署名
 
-安装 Python 3.10+ 和 .NET SDK 10，提供已构建或安装的 Phinix Mod，以及自己合法安装的 RimWorld 1.6 程序集。人才插件还需要 Harmony 2.3.6。这些文件只用于编译，不得提交或随包发行；本地构建无需 Git 或 GitHub CLI。
+- **功能定位**：允许玩家将游戏内物品、白银或装备打包成拼手气或等额红包，通过中继服务向其他在线殖民地分发。
+- **原作者署名与权利**：基于社区原作者开发的经典 Phinix 红包扩展进行移植重构。原作者权利及相关许可完整保留；本仓库提供适配 Phinix Rework 的独立托管插件版本。
+- **分发模式**：已彻底从 Phinix 主模组剥离。作为独立托管 DLL 插件运行，遵循标准 Phinix 扩展生命周期。
 
-```sh
-python check-source.py
-python pack.py --phinix-package /path/to/phinix-rework \
-  --game-references /path/to/RimWorldLinux_Data/Managed \
-  --harmony-references /path/to/Harmony/Assemblies \
-  --packager /path/to/ManagedPackageTool.dll \
-  --output /tmp/plugin-candidate.zip \
-  --bundle-output /tmp/plugin-candidate \
-  --display-output /tmp/plugin-display.json
+---
+
+## 获取与安装
+
+### 游戏内商店安装（推荐）
+
+1. 在 RimWorld 游戏内打开 Phinix 窗口，切换至 **商店**（Store）Tab。
+2. 找到 **Red packets**（版本 1.0.0），点击 **安装**（Install）。
+3. **完全退出并重启 RimWorld** 以加载新安装的程序集。
+
+### 前置运行要求
+
+- **RimWorld 1.6**
+- **Phinix Rework**（需启用内置的 Trade 与 Inventory 核心模块）
+
+---
+
+## 中继服务配置
+
+红包的跨服同步依赖外部网络中继服务：
+- **设置入口**：通过 **Phinix 设置**（Settings）→ **红包设置** 面板进行配置。
+- **配置参数**：填入服务器管理员或社区提供的中继服务地址与房间密钥。
+
+> [!CAUTION]
+> **凭据安全规范**：严禁在公开文档、示例、GitHub Issue 或 PR 中公开真实的在线中继密钥与连接凭据。第三方遗留中继属于社区基础设施，不属于 Phinix 官方安全托管范围。
+
+---
+
+## 发送与领取说明
+
+1. **塞入并发送红包**：
+   - 打开 **红包**（Red Packet）Tab。
+   - 从殖民地的统一虚拟库存或地图仓库中选择物品。
+   - 设定总份数并选择分发模式（**拼手气** 或 **普通等额**）。
+   - 确认无误后点击发送。
+2. **物品支持范围**：
+   - 普通物资与多堆叠基础物品（白银、零部件、药品、食物等）完整支持。
+   - 对于带有复杂动态状态的特殊物品（如带附魔/品质的自定义装备、生物编码武器等），建议先小额测试以确保状态跨服还原正常。
+3. **抢红包与提取**：
+   - 当其他殖民地发送红包时，界面 Tab 角标与事件横幅将弹出提示。
+   - 点击领取后，所得物品将自动进入本殖民地的虚拟库存中，可随时提取至地图仓库。
+4. **超时返还机制**：
+   - 红包超过设定的有效期仍未被完全领取的，剩余物品将自动返还至发送者的虚拟库存中。
+
+---
+
+## 验证状态与安全卸载
+
+- **发布状态**：已正式准入收录至官方插件目录（v1.0.0，PR #26 已合入）。
+- **游戏人测**：静态结构与布局自动化测试已通过。复杂联机跨服中继的人工业务场景仍在持续人测中。
+
+### 安全卸载流程
+
+> [!WARNING]
+> 在停用或卸载本插件前，请确保所有由您发出的红包已完成结算或已超时返还，且所有返还物资已提取入库。
+
+1. 撤回或等待所有由本殖民地发出的活跃红包自然过期。
+2. 提取并清空所有待领取的退回物品。
+3. 在 **扩展管理**（Extension Manager）中停用或卸载 **Red packets**，并重启游戏。
+
+---
+
+## 构建与候选包验证
+
+需要 .NET 10 SDK、本地 Phinix-Rework 源码及 RimWorld 1.6 依赖：
+
+```bash
+# 核验源码与引用归属
+python3 check-source.py
+
+# 打包候选 ZIP
+python3 pack.py \
+  --phinix-package <path-to-Phinix-Rework> \
+  --game-references <path-to-RimWorld-Managed> \
+  --packager <path-to-ManagedPackageTool.dll> \
+  --output <path-to-output>/phinix-legacy-redpacket-1.0.0.zip
 ```
 
-打包器须从可信的 Phinix 源码 `Extensions/PluginStore/Tools/ManagedPackageTool` 构建。ZIP 仅包含 manifest、自己的两个 DLL 和语言文件；不包含主体、交易、库存、Harmony 或游戏 DLL。程序集、模块、类型、设置、codec 和存储身份保持原样。
-
-## 发布边界
-
-源码 CI 只核对文件归属、编译引用、语言声明和固定快照，不上传游戏程序集，也不调用线上业务服务。编译和静态包校验通过不代表游戏验收通过。
-
-独立版游戏验收前，两插件继续随主体发行。不要把候选包与内置版本同时加载，避免重复程序集和模块。红包依赖现有交易、库存模块和其他人维护的旧中继；按维护者明确要求保留原有客户端访问参数。人才保留旧服务、GameComponent 类型和存档字段。拆仓不新增授权或擅自指定 MIT，原作者权利继续保留。
-
-正规发布需要固定源码提交、不可变 ZIP、索引申请 Issue 和维护者亲自添加 `plugin-approved`。红包未决发送及重启核对、人才晚加载组件及缺包重新保存仍是发行门槛；通过前，候选包不上正式目录，主体保留内置 DLL。
+严禁将 RimWorld 游戏程序集或宿主程序集打包进分发 ZIP 中。
