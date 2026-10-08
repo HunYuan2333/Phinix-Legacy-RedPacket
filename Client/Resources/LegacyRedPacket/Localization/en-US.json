@@ -76,6 +76,8 @@
     "Phinix_legacyRedpacket_summaryLine": "{0} x{1}",
     "Phinix_legacyRedpacket_testSuccess": "Test ok",
     "Phinix_legacyRedpacket_statePending": "This item's complete state is still downloading. Try again shortly.",
-    "Phinix_legacyRedpacket_incompatibleStacks": "These stacks cannot be combined without changing their item state. Select items from one physical stack."
+    "Phinix_legacyRedpacket_incompatibleStacks": "These stacks cannot be combined without changing their item state. Select items from one physical stack.",
+    "Phinix_legacyRedpacket_singleStackOnly": "Single source stack",
+    "Phinix_legacyRedpacket_stateGroup": "Separate state group"
   }
 }

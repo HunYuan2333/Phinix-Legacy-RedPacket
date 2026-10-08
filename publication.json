@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "packageId": "phinix.legacy.redpacket",
   "name": "Red packets",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "ownerDirectory": "LegacyRedPacket",
   "contractAssembly": "LegacyRedPacketExtension",
   "clientAssembly": "LegacyRedPacketExtension.Client",

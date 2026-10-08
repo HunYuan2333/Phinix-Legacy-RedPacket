@@ -70,6 +70,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly RedPacketRelay relay;
         private readonly Action<string, LogLevel> log;
         private IInventoryDepositApi inventory;
+        private readonly RedPacketSummaryQueue senderSummaries = new RedPacketSummaryQueue();
+        private DateTime nextSummaryWarningUtc;
         private bool retryCurrentMessage;
         private string lastRetryError;
         private DateTime nextRetryLogUtc;
@@ -199,6 +201,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             CheckClaimTimeouts();
             UpdateExpiry();
             CleanupFinishedPackets();
+            DeliverSenderSummaries();
         }
 
         public RedPacket[] GetPacketsSnapshot()
@@ -404,6 +407,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Clear()
         {
+            senderSummaries.Clear();
             InterruptInventorySends();
             lock (PacketsLock)
             {
@@ -1808,25 +1812,49 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void QueueSenderSummary(RedPacket packet, Dictionary<string, int> claimsSnapshot, DateTime completedAtUtc, bool expired, int returnedCount)
         {
-            if (packet == null) return;
+            if (packet == null || string.IsNullOrEmpty(LocalUuid) || !packet.IsSender(LocalUuid)) return;
+            // Optional presentation must not interrupt packet finalization/cursor advancement.
+            try
+            {
+                string itemLabel = GetPacketItemLabel(packet);
+                string duration = FormatDuration(completedAtUtc - packet.CreatedAtUtc);
+                string claimsText = BuildClaimSummary(claimsSnapshot);
+                string titleKey = expired ? "Phinix_legacyRedpacket_expiredLetterTitle" : "Phinix_legacyRedpacket_completeLetterTitle";
+                string textKey = expired ? "Phinix_legacyRedpacket_expiredLetterText" : "Phinix_legacyRedpacket_completeLetterText";
+                string text = expired
+                    ? textKey.Localize(itemLabel, packet.TotalCount, duration, claimsText, returnedCount)
+                    : textKey.Localize(itemLabel, packet.TotalCount, duration, claimsText);
+                if (!senderSummaries.Enqueue(new RedPacketSummaryQueue.Notice {
+                    Key = packet.Id + (expired ? ":expired" : ":completed"), Owner = LocalUuid,
+                    Title = titleKey.Localize(), Text = text, Expired = expired }))
+                    WarnSummary("QueueFull", null);
+            }
+            catch (Exception exception) { WarnSummary("PreparationFailed", exception); }
+        }
 
-            string localUuid = LocalUuid;
-            if (string.IsNullOrEmpty(localUuid) || !packet.IsSender(localUuid)) return;
+        private void DeliverSenderSummaries()
+        {
+            try
+            {
+                var letters = Current.Game == null || Current.ProgramState != ProgramState.Playing ? null : Find.LetterStack;
+                bool ready = letters != null && LetterDefOf.PositiveEvent != null && LetterDefOf.NegativeEvent != null;
+                senderSummaries.Drain(LocalUuid, ready,
+                    notice => letters.ReceiveLetter(notice.Title, notice.Text,
+                        notice.Expired ? LetterDefOf.NegativeEvent : LetterDefOf.PositiveEvent),
+                    exception => WarnSummary("DeliveryFailed", exception));
+            }
+            catch (Exception exception) { WarnSummary("ContextUnavailable", exception); }
+        }
 
-            string itemLabel = GetPacketItemLabel(packet);
-            string duration = FormatDuration(completedAtUtc - packet.CreatedAtUtc);
-            string claimsText = BuildClaimSummary(claimsSnapshot);
-
-            string titleKey = expired ? "Phinix_legacyRedpacket_expiredLetterTitle" : "Phinix_legacyRedpacket_completeLetterTitle";
-            string textKey = expired ? "Phinix_legacyRedpacket_expiredLetterText" : "Phinix_legacyRedpacket_completeLetterText";
-
-            string text = expired
-                ? textKey.Localize(itemLabel, packet.TotalCount, duration, claimsText, returnedCount)
-                : textKey.Localize(itemLabel, packet.TotalCount, duration, claimsText);
-
-            LetterDef letterDef = expired ? LetterDefOf.NegativeEvent : LetterDefOf.PositiveEvent;
-
-            Find.LetterStack.ReceiveLetter(titleKey.Localize(), text, letterDef);
+        private void WarnSummary(string reason, Exception exception)
+        {
+            if (DateTime.UtcNow < nextSummaryWarningUtc) return;
+            nextSummaryWarningUtc = DateTime.UtcNow.AddSeconds(30);
+            // No relay text, claimant identities, item payloads or credentials in diagnostics.
+            try { log?.Invoke("[RedPacket] Optional sender summary reason=" + reason +
+                " pending=" + senderSummaries.Count + " gameAvailable=" + (Current.Game != null) +
+                " exception=" + (exception == null ? "none" : exception.GetType().Name), LogLevel.WARNING); }
+            catch { /* Logging must not turn optional presentation into a business failure. */ }
         }
 
         private string BuildClaimSummary(Dictionary<string, int> claimsSnapshot)

@@ -213,13 +213,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
             itemsGame = Current.Game;
             List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
             bool allItemsTradable = settingsContext != null && settingsContext.Get("trade.allItemsTradable", false);
-            availableItems = StackedThings.GroupThings(
+            availableItems = RedPacketStackTemplate.GroupPhysical(StackedThings.GroupThings(
                 StoredThingCollector.Collect(homeMaps, allItemsTradable, log).Where(thing =>
                     thing.def.category == ThingCategory.Item
                     && !thing.def.IsCorpse
                     && !(thing is MinifiedThing)),
                 log
-            ).Select(RedPacketAvailableItem.FromPhysical).ToList();
+            ), log).Select(RedPacketAvailableItem.FromPhysical).ToList();
             if (inventoryReservations != null)
             {
                 foreach (InventoryEntry entry in inventoryReservations.GetAvailableSnapshot())
@@ -812,11 +812,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 else
                 {
-                    poppedThings = selectedStack.PopSelectedPhysical().ToList();
+                    var selection = selectedStack.PreparePhysicalSelection(totalCount);
+                    sourceSnapshot = selection.Template;
+                    poppedThings = selection.Sources.PopSelectedWithOrigins().ToList();
                     if (!poppedThings.Any()) throw new InvalidOperationException("No selected items remain.");
                     foreach (PoppedThing poppedThing in poppedThings) poppedThing.DeSpawn();
                     selectedThings = poppedThings.Select(poppedThing => poppedThing.Thing).ToList();
-                    sourceSnapshot = RedPacketStackTemplate.Capture(selectedThings, totalCount);
+                    if (selectedThings.Any(t => t == null || t.Destroyed || t.stackCount < 1 || t.def.defName != sourceSnapshot.DefName) ||
+                        selectedThings.Sum(t => (long)t.stackCount) != totalCount)
+                        throw new InvalidOperationException("Physical selection count changed during extraction.");
                     log?.Invoke("[RedPacketTab] PhysicalSelectionCaptured stacks=" + selectedThings.Count +
                         " items=" + totalCount + "; original stacks remain in custody.", LogLevel.INFO);
                 }
@@ -870,8 +874,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 selectedStack = null;
                 RefreshAvailableItems();
                 log?.Invoke(
-                    $"[RedPacketTab] Failed to create a red packet; selected things were restored.{Environment.NewLine}{exception}",
-                    LogLevel.ERROR);
+                    exception is RedPacketSelectionException rejected
+                        ? "[RedPacketTab] Selection rejected reason=" + rejected.Reason + " items=" + totalCount +
+                          " source=" + (reservationId == null ? "physical" : "inventory")
+                        : $"[RedPacketTab] Failed to create a red packet; restoration was requested.{Environment.NewLine}{exception}",
+                    exception is RedPacketSelectionException ? LogLevel.WARNING : LogLevel.ERROR);
                 Messages.Message("Phinix_legacyRedpacket_sendFailed".Localize(exception.Message), MessageTypeDefOf.RejectInput);
                 return;
             }

@@ -26,6 +26,7 @@
     <Compile Include="RedPacketSettingsPanel.cs" />
     <Compile Include="RedPacketSnapshots.cs" />
     <Compile Include="RedPacketStateMachine.cs" />
+    <Compile Include="RedPacketSummaryQueue.cs" />
     <Compile Include="RedPacketTab.cs" />
     <Compile Include="RedPacketUnreadBadge.cs" />
   </ItemGroup>

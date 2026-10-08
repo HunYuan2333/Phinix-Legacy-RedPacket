@@ -50,7 +50,7 @@ Phinix 经典红包服务的官方托管插件移植版本（包 ID: `phinix.leg
    - 设定总份数并选择分发模式（**拼手气** 或 **普通等额**）。
    - 确认无误后点击发送。
 2. **物品支持范围**：
-   - 普通物资与多堆叠基础物品（白银、零部件、药品、食物等）完整支持。
+   - 普通物品仅在完整可转移状态一致时共用一个模板；未知自定义组件保留单物品堆选择。
    - 对于带有复杂动态状态的特殊物品（如带附魔/品质的自定义装备、生物编码武器等），建议先小额测试以确保状态跨服还原正常。
 3. **抢红包与提取**：
    - 当其他殖民地发送红包时，界面 Tab 角标与事件横幅将弹出提示。
@@ -89,7 +89,7 @@ python3 pack.py \
   --phinix-package <path-to-Phinix-Rework> \
   --game-references <path-to-RimWorld-Managed> \
   --packager <path-to-ManagedPackageTool.dll> \
-  --output <path-to-output>/phinix-legacy-redpacket-1.0.0.zip
+  --output <path-to-output>/phinix-legacy-redpacket-1.0.2.zip
 ```
 
 严禁将 RimWorld 游戏程序集或宿主程序集打包进分发 ZIP 中。
@@ -101,3 +101,13 @@ python3 pack.py \
 维护者在 Repository secrets 配置 BUILD_REFERENCES_TOKEN，仅授予 ci/config.json 指定的私有引用仓库 Contents:Read 权限。这是维护者的 CI 配置；第三方作者应提供自己的合法编译引用。公开产物不含游戏、宿主或 Harmony DLL。程序集身份版本由源码独立控制；自动分配的包发行版本通过 pack.py --version 传入。
 
 合入 main 表示作者确认发布。GitHub Release 不跳过 Index 准入/来源更新策略，也不代表游戏验收通过；修改应先在 dev 测试。宿主和引用的固定输入通过 ci/config.json 显式维护。不要覆盖已发布 ZIP 或暴露引用 token。
+
+## dev 修复版 1.0.2（等待游戏验收）
+
+商店已发布版为 1.0.1。dev 修复不会触发线上 Actions，也不会提前更新商店。修复版在拆堆前校验完整原始状态并保存模板；列表按相同状态规则分组，能从单个堆满足数量时优先单堆。不忽略 tickDelta、揭示记录、任务标签、品质或组件状态；发送模板明确脱离发送者地图。
+
+领取完成和过期通知进入有界、去重、只含值的队列。没有游戏通知环境时等待；世界/账户切换或插件关闭会丢弃旧通知。通知调用抛错时记录警告，不重试结果未知的通知，不阻塞已提交的物品事件或重新发奖励。协议/实际物品交付失败仍沿原恢复规则处理。
+
+回归命令：`dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release`。这 17 个场景使用算法测试替身；实际插件另用游戏引用编译。它们不能替代游戏验收。
+
+游戏测试：从三个等价 75 个钢铁的物品堆发送 200，确认剩余 25，领取总量 200；再从库存发送。检查不同状态物品分开显示，拒绝时数量不变。验证最后一次领取只产生一封完成信，过期返还数量正确，返回主菜单/切档时没有完成通知红字。验收通过后将 dev 合入 main，自动发布新的正式 ZIP；索引随后按已批准策略更新。

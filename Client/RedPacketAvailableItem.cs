@@ -32,7 +32,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public long ReservationQuantity => Combinable ? Selected : Entry.Quantity;
         public string Label => IsInventory
             ? preview.LabelCapNoCount + "  [" + "Phinix_legacyRedpacket_inventorySource".Localize().ToString() + "]"
-            : physical.Label;
+            : physical.Label + ((physical as RedPacketStackTemplate.PhysicalGroup)?.RestrictionKey is string key
+                ? "  [" + key.Localize().ToString() + "]" : string.Empty);
         public ThingDef ThingDef => IsInventory ? preview.def : physical.ThingDef;
         public ThingDef StuffDef => IsInventory ? preview.Stuff : physical.StuffDef;
         public ThingStyleDef StyleDef => IsInventory ? preview.StyleDef : physical.StyleDef;
@@ -59,6 +60,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 (string.IsNullOrEmpty(entry.AggregationKey) && entry.Quantity != 1))
                 throw new InvalidOperationException("This inventory entry cannot be sent in a red packet.");
             return new RedPacketAvailableItem(null, entry.Clone(), preview);
+        }
+
+        internal RedPacketStackTemplate.PhysicalSelection PreparePhysicalSelection(int count)
+        {
+            if (IsInventory) throw new InvalidOperationException("A physical selection was expected.");
+            return RedPacketStackTemplate.PreparePhysical(physical, count);
         }
 
         public IEnumerable<PoppedThing> PopSelectedPhysical()
