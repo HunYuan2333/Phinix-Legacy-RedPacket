@@ -1,0 +1,67 @@
+name: Plugin main release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository == 'HunYuan2333/Phinix-Legacy-RedPacket'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Reserve immutable version for this main commit
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/release.py
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        if: steps.release.outputs.published != 'true'
+        with:
+          dotnet-version: '10.0.x'
+      - name: Source checks
+        if: steps.release.outputs.published != 'true'
+        run: |
+          if [ -f check-source.py ]; then python3 check-source.py; fi
+      - name: Checkout fixed host and nested source pins
+        if: steps.release.outputs.published != 'true'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: HunYuan2333/Phinix-Rework
+          ref: 403cea6c207a630fae391c6dc29bbce5a5a17b3b
+          submodules: recursive
+          persist-credentials: false
+          path: .ci-host
+      - name: Fetch private compile references
+        if: steps.release.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_REFERENCES_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN" || { echo '::error::Configure BUILD_REFERENCES_TOKEN with Contents:Read on the private reference repository.'; exit 1; }
+          gh release download refs-rw16-v3 --repo HunYuan2333/Phinix-Rework-Build-References --pattern references-rw16-v3.zip --dir "$RUNNER_TEMP/phinix-references"
+      - name: Build and verify plugin ZIP
+        if: steps.release.outputs.published != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: python3 ci/build.py --host .ci-host --references "$RUNNER_TEMP/phinix-references/references-rw16-v3.zip" --version "$RELEASE_VERSION" --output dist
+      - name: Save verified artifacts
+        if: steps.release.outputs.published != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: plugin-${{ steps.release.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+      - name: Publish official immutable Release
+        if: steps.release.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/publish.py

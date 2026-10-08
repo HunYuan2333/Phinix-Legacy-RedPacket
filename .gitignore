@@ -9,3 +9,6 @@ references/
 *.local.json
 __pycache__/
 .env*
+
+dist/
+.ci-release.json

@@ -1,0 +1,14 @@
+{
+  "repository": "HunYuan2333/Phinix-Legacy-RedPacket",
+  "kind": "redpacket",
+  "baseVersion": "1.0.0",
+  "assetPrefix": "phinix-legacy-redpacket",
+  "name": "Phinix Rework RedPacket",
+  "hostCommit": "403cea6c207a630fae391c6dc29bbce5a5a17b3b",
+  "references": {
+    "repository": "HunYuan2333/Phinix-Rework-Build-References",
+    "tag": "refs-rw16-v3",
+    "asset": "references-rw16-v3.zip",
+    "sha256": "f4a7ce75b1ab3ff4eef532be333f54d4faac2ca40e9ebfae04ab9964e12aac12"
+  }
+}

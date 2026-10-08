@@ -14,11 +14,13 @@ def main():
     parser.add_argument('--harmony-references', type=Path)
     parser.add_argument('--packager', type=Path, required=True, help='ManagedPackageTool.dll, built from trusted Phinix source')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--version', help='CI release version; defaults to publication.json')
     parser.add_argument('--bundle-output', type=Path)
     parser.add_argument('--display-output', type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     metadata = json.loads((root / 'publication.json').read_text())
+    if args.version: metadata['version'] = args.version
     host = args.phinix_package.resolve()
     game = args.game_references.resolve()
     output = args.output.resolve()
