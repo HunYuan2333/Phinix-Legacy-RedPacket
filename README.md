@@ -21,7 +21,7 @@ The official Phinix managed plugin port of the legacy Red Packet service (Packag
 ### In-Game Installation (Recommended)
 
 1. Open the Phinix window in RimWorld and navigate to the **Store** (`商店`) tab.
-2. Locate **Red packets** (v1.0.0) and click **Install** (`安装`).
+2. Locate **Red packets**, select the latest available Store version and click **Install** (`安装`).
 3. **Restart RimWorld** for the newly installed plugin assemblies to take effect.
 
 ### Prerequisites
@@ -63,7 +63,7 @@ Red packet synchronization relies on a dedicated network relay endpoint:
 ## Verification Status & Safe Removal
 
 - **Publication Status**: Admitted to the official Phinix Plugin Index (v1.0.0, PR #26).
-- **Game Acceptance**: Static package validation and layout tests are verified. Full live multi-colony item relay testing remains an ongoing community evaluation.
+- **Game Acceptance**: The user confirmed this local 1.0.2 game test passed. All 17 algorithm regressions and package preflight passed; individual third-party item components and relay configurations still require their own verification. See the [changelog](CHANGELOG.md).
 
 ### Safe Uninstallation
 
@@ -102,10 +102,10 @@ Maintainers configure BUILD_REFERENCES_TOKEN as a repository secret, with Conten
 
 Merging into main means the author has accepted publication. A GitHub Release does not bypass Index admission/source-update policy or prove game acceptance. Test changes on dev before merging. Fixed host/reference inputs are maintained explicitly in ci/config.json. Do not overwrite released ZIPs or expose the reference token.
 
-## dev repair 1.0.2 (game acceptance pending)
+## Repair 1.0.2 (this local game acceptance passed)
 
 The Store release is 1.0.1. Pushing dev does not run online Actions or update the Store. Physical selection validates intact source state before splitting, retains the original template and groups the UI by the same policy. Prefer one sufficient stack. Tick/reveal history, quest tags, quality and component state remain authoritative; the wire template is detached from the sender map.
 
 Completion/expiry letters use a bounded deduplicated value-only queue. Missing game context defers delivery. World/account changes or shutdown discard old notices. A throwing letter hook is reported without repeating an uncertain letter side effect, holding a committed item event or awarding items again. Genuine protocol/item failures retain existing recovery behavior.
 
-Run `dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release`. The 17 cases use algorithm seams; the production plugin is separately compiled with game references. Game acceptance remains required: send 200 steel from three equivalent 75-item stacks (25 remain), receive all 200, repeat from inventory, reject different states without changing quantities, check final-claim and expiry counts/letters, and return to menu/switch saves without notification errors. After acceptance, merge dev into main to publish the official ZIP; Index source policy then discovers it.
+Run `dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release`. The 17 cases use algorithm seams; the production plugin is separately compiled with game references. The user confirmed this local package passed game acceptance. Keep these regression scenarios: send 200 steel from three equivalent 75-item stacks (25 remain), receive all 200, repeat from inventory, reject different states without changing quantities, check final-claim and expiry counts/letters, and return to menu/switch saves without notification errors. Merging dev into main publishes the official ZIP while retaining dev for further work; Index source policy then discovers it.

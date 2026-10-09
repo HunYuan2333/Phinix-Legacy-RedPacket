@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "packageId": "phinix.legacy.redpacket",
   "files": {
+    "CHANGELOG.md": "6b016a58f82f37e2355b20b3c0a2c8d2166773dc3a3228652a0645e2b7b10b45",
     ".gitignore": "6dd1d0eb2c558b1f0308aa6cbfce8e904549d8b2c8efc390d92aca3d1f45641a",
     "Client/BuiltInLegacyRedPacketClientExtension.cs": "696c827698ece743c56442e0883b2177912a024282b9f84e4ff9db34ff5e7c64",
     "Client/LegacyRedPacketExtension.Client.csproj": "51f5c7ccc3da5afea9283534ad45b6fe055e8554244701ddc318a879c9193be1",
@@ -32,8 +33,8 @@
     "Contracts/RedPacketProtocol.cs": "5302205f5dc51651e6162c10d724d9e9e71fddc1ab6fb375aaf9d218b355b90a",
     "Contracts/RedPacketType.cs": "97833e372920ccef9694d579f4d9b1022d742651468f9b4f1c2e6774d4436b2a",
     "Directory.Build.props": "75cca0fa98bc028e2a981663db825ebcbb8143a4b114165eb2e2be83f3058c51",
-    "README.md": "3952726eba03baafb59f4da24d7ee91449d8f2504a0cfef623b67bc7142fcbf8",
-    "README.zh-CN.md": "539dabc83fb8fb64daa4f3f6e8f97a1e86565540533664a74addf46d04cc0b2e",
+    "README.md": "4d10c492abfc933fb3f2b18c50b847313e0ec645dbfdd9afa11f07a7bbf271fb",
+    "README.zh-CN.md": "4e4d5ff0d0de3be2deabb40b64c7bf6a135d0e7cea408a80e06c43653d95c11f",
     "check-source.py": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e",
     "pack.py": "55fd2abc7199b069c0bfe1e2498191d281c8c76246a54ae45adccaa579f76be0",
     "publication.json": "51a7fc24f9a5c781440b859b4376a0a0b95bca69e74b47ee1d84e8d9d521bee0",
