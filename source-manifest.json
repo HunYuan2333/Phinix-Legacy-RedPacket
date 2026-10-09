@@ -38,7 +38,7 @@
     "check-source.py": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e",
     "pack.py": "55fd2abc7199b069c0bfe1e2498191d281c8c76246a54ae45adccaa579f76be0",
     "publication.json": "51a7fc24f9a5c781440b859b4376a0a0b95bca69e74b47ee1d84e8d9d521bee0",
-    ".github/workflows/release.yml": "7faed893eb5fa3bf45af2a8cabe0fbffd05d31144bc16515f268bce8d66430b9",
+    ".github/workflows/release.yml": "0ec0aaa300844e0ea11e2b17f219c6cd24f5cd2de182e4a507a8d17f0b7d0b64",
     "ci/publish.py": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1",
     "ci/build.py": "b84da522c7a143978c2ed070c2cae045a6d97f19b15e73578fdcda302baa0f5c",
     "ci/release.py": "c0aaa06f1b07ceef640c57510f76941d13c08557aceb1a0128c6994fb3f6b169",
@@ -47,6 +47,9 @@
     "Tests/RedPacketRepairTests/Program.cs": "cd8472ffdc1ab6790474dc54e7cdcfad4a1009cd93e9b8bff320a3cd23cf954c",
     "Tests/RedPacketRepairTests/GameStubs.cs": "eea545ff9f7604ba994d9b800cdb87e32618ec883dce1d370b5c9e0f968f0c58",
     "Tests/RedPacketRepairTests/RedPacketRepairTests.csproj": "304c0b8ac426ee21d39c81ff7722c851009eab72a28cc52dfcedad0aa238b810",
-    "Tests/RedPacketRepairTests/Directory.Build.props": "1a6d1897564c3ad827b3c8502efa0d636fa0acea1c56afe98f9eb8fc53537591"
+    "Tests/RedPacketRepairTests/Directory.Build.props": "1a6d1897564c3ad827b3c8502efa0d636fa0acea1c56afe98f9eb8fc53537591",
+    "ci/notify_index.py": "895680edf54f3ae2bfe1e139421d500725ba71c9d30d48437829377acfea7d9a",
+    "ci/tests/test_notify_index.py": "2954ce9110f369002cf1f371cc7b454684b92b4380def8e24c94d7a391253b8b",
+    "ci/INDEX-NOTIFICATION.md": "a64a05fee2bd8dbd5cec1088a19ae1b39b69586681becc1f6f0d80aa370b3784"
   }
 }
