@@ -58,7 +58,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         }
     }
 
-    internal sealed class RedPacketInventoryCodec : IInventoryCodec, IInventoryVerifiedDeliveryCodec, IInventoryItemPresentationCodec
+    internal partial class RedPacketInventoryCodec : IInventoryCodec, IInventoryItemPresentationCodec
     {
         public string CodecId => "legacy-redpacket.template";
         public int Version => 1;
@@ -137,13 +137,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return thing;
         }
 
-        public void Deliver(Thing thing, Map map, IntVec3 dropSpot)
-        {
-            InventoryDeliveryResult result = DeliverVerified(thing, map, dropSpot);
-            if (!result.Succeeded) throw new InvalidOperationException(result.Reason ?? "Red-packet delivery failed.");
-        }
-
-        public InventoryDeliveryResult DeliverVerified(Thing thing, Map map, IntVec3 dropSpot)
+        public virtual InventoryDeliveryResult DeliverVerified(Thing thing, Map map, IntVec3 dropSpot)
         {
             return InventoryDropDelivery.DeliverThings(new[] { thing }, map, dropSpot);
         }

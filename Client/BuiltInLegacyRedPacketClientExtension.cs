@@ -8,21 +8,19 @@ using Utils.Framework;
 namespace Phinix.LegacyRedPacketExtension.Client
 {
     /// <summary>
-    /// 红包插件入口（Rework 插件化：IPhinixExtensionModule）。
+    /// 红包插件入口：通过 ClientExtensionModule.Compose 组合服务和公开能力。
     ///
     /// 设计哲学 §1.1 插件平权：与 Chat/Trade 同级注册；依赖 Trade（物品快照/转换器/掉落语义）。
     /// 设计哲学 §1.2 host 不依赖插件：本插件只引用 ClientExtensionAbstractions 与 Trade 契约。
     /// 老方案兼容：协议 v1 + HTTP 中继（RedPacketRelay）与老 submod 客户端互通。
     /// </summary>
     [PhinixExtension("builtin.legacy-redpacket", DependsOn = new[] { "builtin.trade", "builtin.inventory" })]
-    public sealed class BuiltInLegacyRedPacketClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    public sealed class BuiltInLegacyRedPacketClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
     {
-        private ExtensionHostContext hostContext;
         private IClientSessionContext session;
         private IClientUserDirectory userDirectory;
         private IClientMainThreadDispatcher mainThreadDispatcher;
         private IClientSettingsContext settingsContext;
-        private IFrameworkClientTransport transport;
         private IClientUserEventStream userEventStream;
 
         private RedPacketSettings settings;
@@ -36,16 +34,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private IDisposable inventoryCodecRegistration;
         private IDisposable inventorySourceRegistration;
 
-        public string ExtensionId => "builtin.legacy-redpacket";
+        public override string ExtensionId => "builtin.legacy-redpacket";
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
-            hostContext = builder.HostContext;
             session = builder.HostContext.GetRequiredService<IClientSessionContext>();
             userDirectory = builder.HostContext.GetRequiredService<IClientUserDirectory>();
             mainThreadDispatcher = builder.HostContext.GetRequiredService<IClientMainThreadDispatcher>();
             settingsContext = builder.HostContext.GetRequiredService<IClientSettingsContext>();
-            transport = builder.HostContext.GetRequiredService<IFrameworkClientTransport>();
             userEventStream = builder.HostContext.GetRequiredService<IClientUserEventStream>();
 
             settings = new RedPacketSettings();
@@ -64,7 +60,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 userDirectory,
                 settingsContext,
                 settings,
-                transport,
                 stateMachine,
                 builder.HostContext.Log);
             unreadBadge = new RedPacketUnreadBadge(session, stateMachine);
@@ -77,8 +72,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Activate(ExtensionHostContext hostContext)
         {
-            this.hostContext = hostContext;
             RedPacketLocalization.Bind(hostContext.GetRequiredService<IClientLocalizationService>().ForModule(this));
+            RedPacketTheme.Start(hostContext,this);
+            tab.BindChat(RedPacketClientAdapters.CreateAnnouncement(hostContext));
 
             if (!hostContext.TryResolveApi<IInventoryDepositApi>(out IInventoryDepositApi inventory) ||
                 !hostContext.TryResolveApi<IInventoryRegistrationApi>(out IInventoryRegistrationApi inventoryRegistry))
@@ -109,6 +105,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            RedPacketTheme.Stop();
+            tab?.BindChat(null);
             if (userEventStream != null && disconnectedHandler != null)
             {
                 userEventStream.Disconnected -= disconnectedHandler;

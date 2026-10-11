@@ -31,6 +31,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
+            using (RedPacketTheme.BeginDraw()) DrawSettingsContents(listing, settings);
+        }
+
+        private void DrawSettingsContents(Listing_Standard listing, IClientSettingsContext settings)
+        {
             RebuildLabels(listing.ColumnWidth);
             bool notifications = this.settings != null && this.settings.EnableNotifications;
             DrawCheckbox(listing, 0, ref notifications);
@@ -82,7 +87,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private void DrawCheckbox(Listing_Standard listing, int index, ref bool value)
         {
             Rect rect = listing.GetRect(heights[index]);
-            Widgets.CheckboxLabeled(rect, labels[index], ref value);
+            RedPacketTheme.Checkbox(rect, labels[index], ref value);
             TooltipHandler.TipRegion(rect, tips[index]);
         }
     }

@@ -6,6 +6,8 @@
 
 The official Phinix managed plugin port of the legacy Red Packet service (Package ID: `phinix.legacy.redpacket`), providing colony-to-colony item gift packets and lucky draws in RimWorld 1.6.
 
+2026-10-10: Current source uses `ClientExtensionModule.Compose` and removes the plugin's old `Register` entry. Packages require abstractions `>=1.9.0 <3.0.0`. Compilation against the matching 2.0 host passed; current package validation, release and game acceptance remain pending. Full DI and remaining item APIs are separate deliverables.
+
 ---
 
 ## Overview & Attribution
@@ -109,3 +111,15 @@ The Store release is 1.0.1. Pushing dev does not run online Actions or update th
 Completion/expiry letters use a bounded deduplicated value-only queue. Missing game context defers delivery. World/account changes or shutdown discard old notices. A throwing letter hook is reported without repeating an uncertain letter side effect, holding a committed item event or awarding items again. Genuine protocol/item failures retain existing recovery behavior.
 
 Run `dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release`. The 17 cases use algorithm seams; the production plugin is separately compiled with game references. The user confirmed this local package passed game acceptance. Keep these regression scenarios: send 200 steel from three equivalent 75-item stacks (25 remain), receive all 200, repeat from inventory, reject different states without changing quantities, check final-claim and expiry counts/letters, and return to menu/switch saves without notification errors. Merging dev into main publishes the official ZIP while retaining dev for further work; Index source policy then discovers it.
+
+2026-10-10 F8: 红包公告已改用 Chat 的当前消息意图 API（Chat 未启用时跳过公告）；库存 codec 只保留显式交付结果。使用同批 2.0 宿主公开 DLL 重编，CI 宿主提交 pin 须在该源码正式提交后协调更新。本批仅编译通过，未发布或游戏内验收。
+
+
+2026-10-10：按用户确认新增客户端抽象 1.9 维护线，和 2.0 分别编译；默认新版本 1.1.0。范围、版本号及命令参数见 [客户端兼容构建](Client-Compatibility.md)。原先“仅 2.0”说明由本节更新。本地包已完成最终静态和宿主引用校验，游戏内验收及正式发布仍待完成。
+
+
+**当前方案已修正为单包内部适配**：版本 1.1.1 的同一 ZIP 支持 API 1.9/2.0；之前两条发行线说明已撤销。旧接口和运行时识别仅在内部 adapter。构建基线、宿主绑定过渡和验证限制见 [客户端兼容说明](Client-Compatibility.md)。
+
+## T4 local theme integration
+
+The unpublished 1.1.2 candidate keeps one binary for client APIs 1.9/current. A private theme adapter binds ordinary current theme registration and immutable palettes; 1.9 uses plugin defaults. UI/business code has no version branches. Online publication remains deferred. See Client-Compatibility.md; game acceptance is pending.

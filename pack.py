@@ -33,7 +33,8 @@ def main():
         build += ['-p:HarmonyReferences=' + str(args.harmony_references.resolve())]
     subprocess.run(build, check=True)
     command = ['dotnet', str(args.packager.resolve()), '--package-id', metadata['packageId'],
-               '--name', metadata['name'], '--version', metadata['version'], '--output', str(output)]
+               '--name', metadata['name'], '--version', metadata['version'], '--output', str(output),
+               '--abstractions-range', '>=1.9.0 <3.0.0', '--compile-client-api', '1.9.0']
     for part, key in [('Contracts', 'contractAssembly'), ('Client', 'clientAssembly')]:
         command += ['--assembly', str(root / part / 'bin/Release/net472' / (metadata[key] + '.dll'))]
     for path in sorted((root / 'Client/Resources').rglob('*.json')):

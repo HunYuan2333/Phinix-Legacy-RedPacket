@@ -84,6 +84,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (RedPacketTheme.BeginDraw()) DrawContents(inRect);
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (snapshot == null) return;
 
             float y = inRect.yMin - 2f;
@@ -131,17 +136,19 @@ namespace Phinix.LegacyRedPacketExtension.Client
             ThingDef iconDef = itemDef ?? DefDatabase<ThingDef>.GetNamedSilentFail("UnknownItem");
             if (iconDef != null)
             {
-                Widgets.ThingIcon(iconRect, iconDef, stuffDef, null, 1f);
+                using (RedPacketTheme.BeginDraw())
+                { GUI.color=Color.white; Widgets.ThingIcon(iconRect, iconDef, stuffDef, null, 1f); }
             }
             else
             {
-                GUI.DrawTexture(iconRect, BaseContent.BadTex);
+                using (RedPacketTheme.BeginDraw())
+                { GUI.color=Color.white; GUI.DrawTexture(iconRect, BaseContent.BadTex); }
             }
             Widgets.DrawBox(iconRect, 1);
 
             if (Mouse.IsOver(iconRect))
             {
-                Widgets.DrawHighlight(iconRect);
+                RedPacketTheme.Highlight(iconRect);
             }
 
             if (iconDef != null && Widgets.ButtonInvisible(iconRect))
@@ -180,7 +187,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 Rect rowRect = new Rect(0f, y, viewRect.width, CLAIM_LINE_HEIGHT);
                 if (i % 2 == 1)
                 {
-                    Widgets.DrawHighlight(rowRect);
+                    RedPacketTheme.Highlight(rowRect);
                 }
 
                 bool best = snapshot.IsFullyClaimed
@@ -198,7 +205,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (layout.ShowBest)
                 {
                     Color oldColor = GUI.color;
-                    GUI.color = new Color(1f, 0.84f, 0.2f, 1f);
+                    GUI.color = RedPacketTheme.Current["redpacket.accent"];
                     Widgets.Label(layout.BestRect, cachedBestText);
                     GUI.color = oldColor;
                 }

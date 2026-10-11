@@ -8,6 +8,10 @@
     <AssemblyName>LegacyRedPacketExtension.Client</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Compatibility/ThemeAdapter.cs" />
+    <Compile Include="RedPacketTheme.cs" />
+    <Compile Include="Compatibility/IRedPacketAnnouncementSender.cs" />
+    <Compile Include="Compatibility/ClientAdapters.cs" />
     <Compile Include="BuiltInLegacyRedPacketClientExtension.cs" />
     <Compile Include="RedPacketLocalization.cs" />
     <Compile Include="RedPacketStackTemplate.cs" />
@@ -53,6 +57,10 @@
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameReferences)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameReferences)/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">

@@ -61,7 +61,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly IClientUserDirectory userDirectory;
         private readonly IClientSettingsContext settingsContext;
         private readonly RedPacketSettings settings;
-        private readonly IFrameworkClientTransport transport;
+        private IRedPacketAnnouncementSender messageSender;
         private readonly RedPacketStateMachine stateMachine;
         private readonly Action<string, LogLevel> log;
 
@@ -94,7 +94,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
             IClientUserDirectory userDirectory,
             IClientSettingsContext settingsContext,
             RedPacketSettings settings,
-            IFrameworkClientTransport transport,
             RedPacketStateMachine stateMachine,
             Action<string, LogLevel> log)
         {
@@ -102,7 +101,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
             this.userDirectory = userDirectory;
             this.settingsContext = settingsContext;
             this.settings = settings;
-            this.transport = transport;
             this.stateMachine = stateMachine;
             this.log = log;
         }
@@ -119,11 +117,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (RedPacketTheme.BeginDraw()) DrawContents(inRect);
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
             if (!IsOnline)
             {
-                Widgets.DrawMenuSection(inRect);
+                RedPacketTheme.Surface(inRect);
                 Widgets.NoneLabelCenteredVertically(inRect, "Phinix_legacyRedpacket_pleaseLogInPlaceholder".Localize());
                 return;
             }
@@ -160,7 +163,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void DrawCompactTab(Rect rect, string label, bool selected, CompactPane pane)
         {
-            Widgets.DrawOptionBackground(rect, selected);
+            RedPacketTheme.Surface(rect);
+            if (selected || Mouse.IsOver(rect)) RedPacketTheme.Highlight(rect);
             TextAnchor previousAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.LabelFit(rect.ContractedBy(4f, 0f), label);
@@ -260,7 +264,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void DrawSendPanel(Rect inRect)
         {
-            Widgets.DrawMenuSection(inRect);
+            RedPacketTheme.Surface(inRect);
             Rect contentRect = inRect.ContractedBy(DEFAULT_SPACING);
 
             float y = contentRect.y;
@@ -307,13 +311,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             Widgets.Label(searchLayout.LabelRect, "Phinix_legacyRedpacket_searchLabel".Localize());
             string oldSearch = searchText;
-            searchText = Widgets.TextField(searchLayout.InputRect, searchText);
+            searchText = RedPacketTheme.TextField(searchLayout.InputRect, searchText,controlName:"phinix.redpacket.search");
             if (!searchText.Equals(oldSearch, StringComparison.Ordinal))
             {
                 UpdateFilteredItems();
             }
 
-            if (Widgets.ButtonText(searchLayout.ActionRect, "Phinix_legacyRedpacket_refreshButton".Localize()))
+            if (RedPacketTheme.Button(searchLayout.ActionRect, "Phinix_legacyRedpacket_refreshButton".Localize()))
             {
                 RefreshAvailableItems();
             }
@@ -327,7 +331,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Rect sendButtonRect = new Rect(controlsRect.x, typeRowRect.yMax + DEFAULT_SPACING, controlsRect.width, BUTTON_HEIGHT);
 
             Widgets.Label(packetLayout.LabelRect, "Phinix_legacyRedpacket_packetCountLabel".Localize());
-            packetCountText = Widgets.TextField(packetLayout.InputRect, packetCountText);
+            packetCountText = RedPacketTheme.TextField(packetLayout.InputRect, packetCountText,controlName:"phinix.redpacket.count");
 
             Rect typeLabelRect;
             Rect normalRect;
@@ -357,7 +361,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             bool previousEnabled = GUI.enabled;
             GUI.enabled = !onCooldown;
-            if (Widgets.ButtonText(sendButtonRect, sendLabel))
+            if (RedPacketTheme.Button(sendButtonRect, sendLabel))
             {
                 TrySendPacket();
             }
@@ -397,7 +401,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (drawCount == 0)
             {
-                Widgets.DrawMenuSection(inRect);
+                RedPacketTheme.Surface(inRect);
                 Widgets.NoneLabelCenteredVertically(inRect, "Phinix_legacyRedpacket_noItemsPlaceholder".Localize());
                 return;
             }
@@ -420,10 +424,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 RedPacketAvailableItem stack = filteredItems[i];
                 float currentY = contentRect.yMin + i * rowHeight;
                 Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
-                if ((i % 2 != 0) || selectedStack == stack) Widgets.DrawHighlight(rowRect);
+                if ((i % 2 != 0) || selectedStack == stack) RedPacketTheme.Highlight(rowRect);
 
                 Rect iconRect = rowRect.LeftPartPixels(ITEM_ICON_WIDTH);
-                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
+                using (RedPacketTheme.BeginDraw())
+                { GUI.color=Color.white; Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f); }
 
                 float inputAreaWidth = COUNT_FIELD_WIDTH + AVAILABLE_COUNT_WIDTH + DEFAULT_SPACING;
                 Rect inputAreaRect = new Rect(rowRect.xMax - (RIGHT_PADDING + inputAreaWidth), rowRect.yMin, inputAreaWidth, rowRect.height);
@@ -436,7 +441,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 int oldSelected = stack.Selected;
 
                 string buf = stack.Selected == 0 ? string.Empty : stack.Selected.ToString();
-                buf = Widgets.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
+                buf = RedPacketTheme.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
                 stack.Selected = string.IsNullOrEmpty(buf) ? 0
                     : int.TryParse(buf, out int parsedCount) ? Mathf.Clamp(parsedCount, 0, stack.Count)
                     : stack.Selected;
@@ -462,7 +467,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void DrawPacketList(Rect inRect)
         {
-            Widgets.DrawMenuSection(inRect);
+            RedPacketTheme.Surface(inRect);
             Rect contentRect = inRect.ContractedBy(DEFAULT_SPACING);
 
             float toggleWidth = Mathf.Min(180f, contentRect.width * 0.45f);
@@ -478,7 +483,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Text.Font = GameFont.Small;
             bool notificationsEnabled = settings != null && settings.EnableNotifications;
             bool newValue = notificationsEnabled;
-            Widgets.CheckboxLabeled(toggleRect, "Phinix_legacyRedpacket_notificationToggle".Localize(), ref newValue);
+            RedPacketTheme.Checkbox(toggleRect, "Phinix_legacyRedpacket_notificationToggle".Localize(), ref newValue);
             if (newValue != notificationsEnabled)
             {
                 settings?.Save(settingsContext, RedPacketSettings.KeyNotifications, newValue);
@@ -490,7 +495,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             RedPacket[] packets = GetDisplayedPackets(nowUtc, localUuid);
             if (packets.Length == 0)
             {
-                Widgets.DrawMenuSection(listRect);
+                RedPacketTheme.Surface(listRect);
                 if (stateMachine.TestPingReceived)
                 {
                     Rect testRect = listRect.TopPartPixels(24f);
@@ -538,8 +543,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 float currentY = i * rowHeight;
 
                 Rect rowRect = new Rect(viewRect.xMin, currentY, viewRect.width, rowHeight);
-                if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
-                Widgets.DrawBoxSolidWithOutline(rowRect, Color.clear, new Color(1f, 1f, 1f, 0.15f), 1);
+                if (i % 2 != 0) RedPacketTheme.Highlight(rowRect);
+                Widgets.DrawBoxSolidWithOutline(rowRect, Color.clear, RedPacketTheme.Current["ui.separator"], 1);
 
                 float actionWidth = Mathf.Min(PACKET_BUTTON_WIDTH, Mathf.Max(64f, rowRect.width * 0.3f));
                 Rect buttonRect = new Rect(rowRect.xMax - actionWidth, rowRect.yMin + (rowRect.height - BUTTON_HEIGHT) / 2f, actionWidth, BUTTON_HEIGHT);
@@ -620,7 +625,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (iconDef != null)
             {
                 Rect iconRect = new Rect(inRect.xMin, inRect.yMin, PACKET_ICON_SIZE, PACKET_ICON_SIZE);
-                Widgets.ThingIcon(iconRect, iconDef, stuffDef, null, 0.9f);
+                using (RedPacketTheme.BeginDraw())
+                { GUI.color=Color.white; Widgets.ThingIcon(iconRect, iconDef, stuffDef, null, 0.9f); }
             }
 
             Rect line1Rect = new Rect(inRect.xMin + textOffset, startY, inRect.width - textOffset, lineHeight);
@@ -658,7 +664,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (!packet.Expired && !isEmpty && !claimed && !pending && !isSender)
             {
-                if (Widgets.ButtonText(inRect, "Phinix_legacyRedpacket_claimButton".Localize()))
+                if (RedPacketTheme.Button(inRect, "Phinix_legacyRedpacket_claimButton".Localize()))
                 {
                     stateMachine.RequestClaim(packet);
                 }
@@ -676,7 +682,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (isSender)
             {
-                if (Widgets.ButtonText(inRect, "Phinix_legacyRedpacket_detailButton".Localize()))
+                if (RedPacketTheme.Button(inRect, "Phinix_legacyRedpacket_detailButton".Localize()))
                 {
                     OpenPacketDetail(packet);
                 }
@@ -950,6 +956,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return false;
         }
 
+        internal void BindChat(IRedPacketAnnouncementSender sender) { messageSender = sender; }
+
         private void TryBroadcastChatAnnouncement()
         {
             if (!IsOnline) return;
@@ -957,12 +965,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (LanguageDatabase.activeLanguage == null) return;
 
             string text = "Phinix_legacyRedpacket_chatAnnounceMessage".Localize();
-            transport?.TryHandleOutgoingMessage(text);
+            if (messageSender != null && !messageSender.TrySend(text))
+                log?.Invoke("[RedPacketTab] Chat announcement was not dispatched.", LogLevel.WARNING);
         }
 
         private void DrawTypeButton(Rect inRect, string label, bool selected)
         {
-            Widgets.DrawOptionBackground(inRect, selected);
+            RedPacketTheme.Surface(inRect);
+            if (selected || Mouse.IsOver(inRect)) RedPacketTheme.Highlight(inRect);
 
             if (selected)
             {
