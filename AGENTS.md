@@ -19,3 +19,5 @@
 ## 保留的旧客户端适配
 
 插件内部 1.9 adapters 必须保留。旧客户端不要求新 renderer；当前 UI 的旧 SDK 反射/接口转换只放明确 adapter 内，不把兼容判断扩散进新业务。协议、保存键和业务确认规则不因 UI 文案或版本号变化而改变。刷新语言资源后更新 `Client/localization.json` 与 `source-manifest.json`，执行 `python3 check-source.py`。
+
+发布构建的 `hostCommit` 固定当前 renderer/API 验证与打包工具；`compileHostCommit` 固定真实 API 1.9 源码，只用于旧客户端兼容二进制的编译引用。两个 checkout 均验证 exact SHA 和 gitlinks，构建摘要记录两者，不向插件包复制任何 Host/游戏引用。

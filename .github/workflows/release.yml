@@ -49,6 +49,19 @@ jobs:
           submodules: recursive
           persist-credentials: false
           path: .ci-host
+      - name: Read fixed legacy compile host
+        id: compile-host
+        if: steps.release.outputs.published != 'true'
+        run: python3 -c 'import json, os; c=json.load(open("ci/config.json")); open(os.environ["GITHUB_OUTPUT"], "a").write("commit=" + c["compileHostCommit"] + "\n")'
+      - name: Checkout fixed API 1.9 compile host
+        if: steps.release.outputs.published != 'true'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: HunYuan2333/Phinix-Rework
+          ref: ${{ steps.compile-host.outputs.commit }}
+          submodules: recursive
+          persist-credentials: false
+          path: .ci-compile-host
       - name: Fetch private compile references
         if: steps.release.outputs.published != 'true'
         env:
@@ -60,7 +73,7 @@ jobs:
         if: steps.release.outputs.published != 'true'
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: python3 ci/build.py --host .ci-host --references "$RUNNER_TEMP/phinix-references/references-rw16-v3.zip" --version "$RELEASE_VERSION" --output dist
+        run: python3 ci/build.py --host .ci-host --compile-host .ci-compile-host --references "$RUNNER_TEMP/phinix-references/references-rw16-v3.zip" --version "$RELEASE_VERSION" --output dist
       - name: Save verified artifacts
         if: steps.release.outputs.published != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -40,3 +40,16 @@ class ReleaseTests(unittest.TestCase):
             build.verify_host_api(host,{'requiredPresentationMembers':['WithIconSource']})
 
 if __name__=='__main__':unittest.main()
+
+class PackagingEntryTests(unittest.TestCase):
+    def test_pack_help_has_unique_arguments(self):
+        import subprocess, sys
+        result = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] / 'pack.py'), '--help'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count('--version VERSION'), 2)
+
+    def test_separate_compile_baseline_is_pinned(self):
+        import json
+        c=json.loads((Path(__file__).resolve().parents[2] / 'ci/config.json').read_text())
+        self.assertRegex(c['compileHostCommit'], r'^[0-9a-f]{40}$')
+        self.assertNotEqual(c['hostCommit'], c['compileHostCommit'])
