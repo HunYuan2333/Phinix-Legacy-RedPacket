@@ -48,8 +48,11 @@ class PackagingEntryTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.count('--version VERSION'), 2)
 
-    def test_separate_compile_baseline_is_pinned(self):
+    def test_only_current_compile_host_is_pinned(self):
         import json
         c=json.loads((Path(__file__).resolve().parents[2] / 'ci/config.json').read_text())
-        self.assertRegex(c['compileHostCommit'], r'^[0-9a-f]{40}$')
-        self.assertNotEqual(c['hostCommit'], c['compileHostCommit'])
+        self.assertRegex(c['hostCommit'], r'^[0-9a-f]{40}$')
+        self.assertNotIn('compileHostCommit', c)
+        script=(Path(__file__).resolve().parents[2] / 'pack.py').read_text()
+        self.assertIn("'--compile-client-api', '2.0.0'", script)
+        self.assertIn("'--abstractions-range', '>=2.0.0 <3.0.0'", script)

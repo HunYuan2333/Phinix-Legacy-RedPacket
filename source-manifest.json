@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "packageId": "phinix.legacy.redpacket",
   "files": {
-    ".github/workflows/release.yml": "4c86002e52e67a3a87ff506cdd55f349ef2640055f4d4d65d2f26af2dd229cf4",
+    ".github/workflows/release.yml": "f709128d4957b1d4131d7679c68b34c35e8647fb93f4797eced80f87fcb2e2b6",
     ".gitignore": "6dd1d0eb2c558b1f0308aa6cbfce8e904549d8b2c8efc390d92aca3d1f45641a",
-    "AGENTS.md": "9f94e61f5d680e0f305b5e1122911cd2cda8c953d2335997fe9df9e8f002fde2",
+    "AGENTS.md": "ba98d2136b33a999624648e6d05f35057c07bfaa5692546cd44c68f7facea254",
     "CHANGELOG.md": "6b016a58f82f37e2355b20b3c0a2c8d2166773dc3a3228652a0645e2b7b10b45",
     "Client/BuiltInLegacyRedPacketClientExtension.cs": "21c5104a4a1dc0aec6dfc9a9cbb6d8b6f5af0f30c5b9c962ab1a1f990453a036",
     "Client/Compatibility/ClientAdapters.cs": "ec5e165a69c2a39438d3eb2b38ca73b0657882efdcd2a961dd62f98321ec7684",
@@ -64,14 +64,14 @@
     "UI-UX-Host-Migration-2026-10-12.md": "5924da76da73677c2ec59b20c87e161abc91c6c6c46d80ab30bcc2411c0c35b6",
     "check-source.py": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e",
     "ci/INDEX-NOTIFICATION.md": "a64a05fee2bd8dbd5cec1088a19ae1b39b69586681becc1f6f0d80aa370b3784",
-    "ci/build.py": "4aedeff97388123952828523f6741ddd6fa5a0768aa2d016eb6f68968e0c2f46",
-    "ci/config.json": "33a3baae1386fb1d83a95a0df8dfb3cbbad39eacc0c59fddb7b2d116b93c8575",
+    "ci/build.py": "1ebac1fdb80df4bf2a45c0e1dd71172d19b4699c195c8bbbc954158ce7016cec",
+    "ci/config.json": "faa6f553c8f47c7eb08ab6bba1286d432160ec2f79f1cef6a70bc590edf5a1bf",
     "ci/notify_index.py": "895680edf54f3ae2bfe1e139421d500725ba71c9d30d48437829377acfea7d9a",
     "ci/publish.py": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1",
     "ci/release.py": "c0aaa06f1b07ceef640c57510f76941d13c08557aceb1a0128c6994fb3f6b169",
     "ci/tests/test_notify_index.py": "2954ce9110f369002cf1f371cc7b454684b92b4380def8e24c94d7a391253b8b",
-    "ci/tests/test_release_flow.py": "e3452e0cc720020f00e9330eb552af88e9a99b9a47852ec769179bd42c5b3985",
-    "pack.py": "e4ad261e31f1f5840811ffcb8254b24a373c86fb62752461f0bd4343faf2936a",
+    "ci/tests/test_release_flow.py": "1143876388090e32712a2fc437efeb72579321b187487eedad07afbb0a0617d9",
+    "pack.py": "6ab956447adb2c896c4a1206ffcfbf22ccc4d755b1f3a0be30777515e9e61eb6",
     "publication.json": "1a3d24302cedbfb406625ebee01b412d385141637e20d300fdd423d17d09f3e7"
   }
 }

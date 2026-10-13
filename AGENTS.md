@@ -16,8 +16,6 @@
 - 发布前：核对共享文件所有权，完成源码/语言资源摘要和占位符检查、必要白盒/编译/包 static references/CRC 检查；核对游戏验收记录与最终测试组合。把 version baseline、Host pin、源码、资源和摘要作为一批合入，减少中间 main push 产生的不完整正式包。
 - 不在本地执行 `ci/release.py` 或 `ci/publish.py` 做测试：它们会写 GitHub。版本算法和发布检查用模拟 API 的单元测试；允许本地 `pack.py` 生成候选。禁止提交凭据、真实服务器/玩家日志、GameDlls、构建输出、ZIP 或运行期数据。
 
-## 保留的旧客户端适配
+## 当前发行目标
 
-插件内部 1.9 adapters 必须保留。旧客户端不要求新 renderer；当前 UI 的旧 SDK 反射/接口转换只放明确 adapter 内，不把兼容判断扩散进新业务。协议、保存键和业务确认规则不因 UI 文案或版本号变化而改变。刷新语言资源后更新 `Client/localization.json` 与 `source-manifest.json`，执行 `python3 check-source.py`。
-
-发布构建的 `hostCommit` 固定当前 renderer/API 验证与打包工具；`compileHostCommit` 固定真实 API 1.9 源码，只用于旧客户端兼容二进制的编译引用。两个 checkout 均验证 exact SHA 和 gitlinks，构建摘要记录两者，不向插件包复制任何 Host/游戏引用。
+本次用户明确撤销旧客户端兼容发行要求。新正式包仅面向当前 Host API >=2.0.0 <3.0.0，使用 ci/config.json.hostCommit 同一源码构建和验证，pack.py 要求 compile-client-api 2.0.0；不再 checkout 第二个旧 Host。已有内部 adapter 保留为历史实现，不代表本次包支持 API 1.9。不改业务协议、保存键或确认规则。刷新语言资源后更新 Client/localization.json 与 source-manifest.json，并执行 python3 check-source.py。

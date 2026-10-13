@@ -38,7 +38,7 @@ def verify_host_api(host, config):
             raise ValueError('Fixed host lacks '+member+'. Update hostCommit to the tested final Host commit before releasing.')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--host',type=Path,required=True);p.add_argument('--compile-host',type=Path,required=True);p.add_argument('--references',type=Path,required=True);p.add_argument('--version',required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--host',type=Path,required=True);p.add_argument('--references',type=Path,required=True);p.add_argument('--version',required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     config=json.loads(Path('ci/config.json').read_text());host=a.host.resolve()
     if subprocess.check_output(['git','-C',str(host),'rev-parse','HEAD'],text=True).strip()!=config['hostCommit']:raise ValueError('Host source does not match the fixed commit.')
     verify_host_api(host,config)
@@ -46,20 +46,15 @@ def main():
     run(['dotnet','build',host/'Phinix.sln','--configuration','Release 1.6','-p:BuildInParallel=false','-p:NuGetAudit=false','-m:1'])
     tool=host/'Extensions/PluginStore/Tools/ManagedPackageTool'
     run(['dotnet','build',tool/'ManagedPackageTool.csproj','-c','Release','-p:BuildInParallel=false','-p:NuGetAudit=false','-m:1'])
-    compile_host=a.compile_host.resolve()
-    if subprocess.check_output(['git','-C',str(compile_host),'rev-parse','HEAD'],text=True).strip()!=config['compileHostCommit']:
-        raise ValueError('Legacy compile host does not match the fixed API 1.9 baseline.')
-    provision(a.references,compile_host,config['references']['sha256'])
-    run(['dotnet','build',compile_host/'Phinix.sln','--configuration','Release 1.6','-p:BuildInParallel=false','-p:NuGetAudit=false','-m:1'])
     a.output.mkdir(parents=True,exist_ok=True);output=a.output/(config['assetPrefix']+'-'+a.version+'.zip')
     args=['python3','pack.py','--game-references',host/'GameDlls','--version',a.version,'--output',output]
     if config['kind']=='example':args+=['--phinix-root',host]
     else:
-        args+=['--phinix-package',compile_host/'Output/phinix-rework','--packager',tool/'bin/Release/net10.0/ManagedPackageTool.dll']
+        args+=['--phinix-package',host/'Output/phinix-rework','--packager',tool/'bin/Release/net10.0/ManagedPackageTool.dll']
         if config['kind']=='talent':args+=['--harmony-references',host/'.nuget/Lib.Harmony.2.3.6/lib/net472']
     run(args);manifest=verify(output,a.version)
     summary=dict(schemaVersion=1,repository=config['repository'],sourceCommit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
-        hostCommit=config['hostCommit'],compileHostCommit=config['compileHostCommit'],commonCommit=subprocess.check_output(['git','-C',str(host/'Dependencies/Phinix.Common'),'rev-parse','HEAD'],text=True).strip(),
+        hostCommit=config['hostCommit'],commonCommit=subprocess.check_output(['git','-C',str(host/'Dependencies/Phinix.Common'),'rev-parse','HEAD'],text=True).strip(),
         packageId=manifest['packageId'],version=a.version,asset=output.name,sizeBytes=output.stat().st_size,sha256=sha(output))
     (a.output/'build-summary.json').write_text(json.dumps(summary,indent=2)+'\n')
     (a.output/'SHA256SUMS').write_text(summary['sha256']+'  '+output.name+'\n')

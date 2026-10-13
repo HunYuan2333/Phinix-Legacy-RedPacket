@@ -13,6 +13,5 @@
   },
   "requiredPresentationMembers": [
     "WithIconSource"
-  ],
-  "compileHostCommit": "403cea6c207a630fae391c6dc29bbce5a5a17b3b"
+  ]
 }
