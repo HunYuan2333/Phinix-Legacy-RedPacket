@@ -3,10 +3,11 @@ using System;using System.Collections.Generic;using System.Linq;
 namespace Utils { public enum LogLevel { INFO, WARNING, ERROR } }
 namespace Verse {
  public class ThingDef { public string defName="Steel"; }
- public class Thing { public bool Destroyed; public int stackCount=75;public ThingDef def=new ThingDef();public string State="<beenRevealed>true</beenRevealed><tickDelta>0</tickDelta><health>100</health>";public bool CanStackWith(Thing other)=>other.def.defName==def.defName; }
+ public class Thing { public bool Destroyed; public ThingDef Stuff;public int HitPoints=100; public int stackCount=75;public ThingDef def=new ThingDef();public string State="<beenRevealed>true</beenRevealed><tickDelta>0</tickDelta><health>100</health>";public bool CanStackWith(Thing other)=>other.def.defName==def.defName; }
+ public class ThingComp {public virtual void PostExposeData(){} public virtual void PreAbsorbStack(Thing t,int n){} public virtual void PostSplitOff(Thing t){} public virtual bool AllowStackWith(Thing t)=>true;}
  public class ThingWithComps:Thing { public List<object> AllComps=new List<object>(); }
 }
-namespace RimWorld { public class CompForbiddable{} public class CompQuality{} public class CompColorable{} public class CompRottable{} public class CompIngredients{} }
+namespace RimWorld { public class CompForbiddable{} public class CompQuality{public int Quality;} public class CompColorable{} public class CompRottable{} public class CompIngredients{} }
 namespace PhinixClient.Trade {
  public enum TradeItemQuality { None }
  public class TradeItemSnapshot {

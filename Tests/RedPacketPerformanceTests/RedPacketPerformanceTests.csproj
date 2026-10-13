@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><Optimize>true</Optimize></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../RedPacketRepairTests/GameStubs.cs" Link="GameStubs.cs" />
+    <Compile Include="../../Client/RedPacketStackTemplate.cs" Link="Production/RedPacketStackTemplate.cs" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
 using Phinix.InventoryExtension;
@@ -65,7 +66,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             unreadBadge = new RedPacketUnreadBadge(session, stateMachine);
             settingsPanel = new RedPacketSettingsPanel(settingsContext, settings);
 
-            builder.RegisterApi<IMainTabProvider>(tab);
+            builder.RegisterApi<IMainTabProvider>(RedPacketPresentationAdapter.Wrap(tab));
             builder.RegisterApi<IBadgeProvider>(unreadBadge);
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanel);
         }
@@ -99,30 +100,32 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 userEventStream.Disconnected += disconnectedHandler;
             }
 
+            tab.StartPresentation(RedPacketPresentationAdapter.Create(hostContext,this),settingsPanel);
             stateMachine?.Initialize();
             hostContext.Log?.Invoke("[RedPacket] Red packet extension activated (v1 protocol + relay, legacy compatible).", LogLevel.INFO);
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
-            RedPacketTheme.Stop();
-            tab?.BindChat(null);
-            if (userEventStream != null && disconnectedHandler != null)
-            {
-                userEventStream.Disconnected -= disconnectedHandler;
-            }
-            disconnectedHandler = null;
+            var errors=new List<Exception>();
+            Action<Action> cleanup=action=>{try{action();}catch(Exception error){errors.Add(error);}};
+            cleanup(()=>settingsPanel?.BindPresentation(null));
+            cleanup(()=>tab?.StopPresentation());
+            cleanup(()=>RedPacketTheme.Stop());
+            var oldDisconnected=disconnectedHandler;disconnectedHandler=null;
+            if(userEventStream!=null&&oldDisconnected!=null)cleanup(()=>userEventStream.Disconnected-=oldDisconnected);
+            cleanup(()=>stateMachine?.Shutdown());
+            cleanup(()=>stateMachine?.BindInventorySending(null,null,null));
+            cleanup(()=>tab?.BindInventory(null,null));
+            cleanup(()=>stateMachine?.BindInventory(null));
+            cleanup(()=>tab?.BindChat(null));
+            var oldSource=inventorySourceRegistration;inventorySourceRegistration=null;
+            var oldCodec=inventoryCodecRegistration;inventoryCodecRegistration=null;
+            cleanup(()=>oldSource?.Dispose());cleanup(()=>oldCodec?.Dispose());
+            cleanup(()=>RedPacketLocalization.Bind(null));
+            hostContext.Log?.Invoke("[RedPacket] Red packet extension shut down.",LogLevel.INFO);
+            if(errors.Count>0)throw new AggregateException(errors);
 
-            stateMachine?.Shutdown();
-            stateMachine?.BindInventorySending(null, null, null);
-            tab?.BindInventory(null, null);
-            stateMachine?.BindInventory(null);
-            inventorySourceRegistration?.Dispose();
-            inventorySourceRegistration = null;
-            inventoryCodecRegistration?.Dispose();
-            inventoryCodecRegistration = null;
-            RedPacketLocalization.Bind(null);
-            hostContext.Log?.Invoke("[RedPacket] Red packet extension shut down.", LogLevel.INFO);
         }
     }
 }

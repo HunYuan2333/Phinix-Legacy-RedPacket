@@ -27,10 +27,21 @@ def verify(output,version):
             if hashlib.sha256(z.read(record['path'])).hexdigest()!=record['sha256']:raise ValueError('Entry digest mismatch.')
     return manifest
 
+def verify_host_api(host, config):
+    required=config.get('requiredPresentationMembers',[])
+    contract=host/'Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs'
+    if required and not contract.is_file():
+        raise ValueError('Fixed host lacks the required presentation contract. Update ci/config.json hostCommit to the tested final Host commit.')
+    source=contract.read_text() if required else ''
+    for member in required:
+        if not re.search(r'\b'+re.escape(member)+r'\s*\(',source):
+            raise ValueError('Fixed host lacks '+member+'. Update hostCommit to the tested final Host commit before releasing.')
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--host',type=Path,required=True);p.add_argument('--references',type=Path,required=True);p.add_argument('--version',required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     config=json.loads(Path('ci/config.json').read_text());host=a.host.resolve()
     if subprocess.check_output(['git','-C',str(host),'rev-parse','HEAD'],text=True).strip()!=config['hostCommit']:raise ValueError('Host source does not match the fixed commit.')
+    verify_host_api(host,config)
     provision(a.references,host,config['references']['sha256'])
     run(['dotnet','build',host/'Phinix.sln','--configuration','Release 1.6','-p:BuildInParallel=false','-p:NuGetAudit=false','-m:1'])
     tool=host/'Extensions/PluginStore/Tools/ManagedPackageTool'

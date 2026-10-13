@@ -9,6 +9,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
     /// </summary>
     internal sealed class RedPacketSettingsPanel : IClientSettingsPanelProvider
     {
+        private RedPacketPresentation presentation;
+        internal void BindPresentation(RedPacketPresentation value){presentation=value;}
         private readonly IClientSettingsContext settingsContext;
         private readonly RedPacketSettings settings;
         private readonly string[] labels = new string[3];
@@ -31,6 +33,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
+            if(presentation!=null){presentation.DrawSettingsLauncher(listing.GetRect(36f));return;}
             using (RedPacketTheme.BeginDraw()) DrawSettingsContents(listing, settings);
         }
 

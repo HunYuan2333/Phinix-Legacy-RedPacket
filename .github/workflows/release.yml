@@ -36,12 +36,16 @@ jobs:
         run: |
           if [ -f check-source.py ]; then python3 check-source.py; fi
           python3 -m unittest discover -s ci/tests -v
+      - name: Read fixed host commit
+        id: host
+        if: steps.release.outputs.published != 'true'
+        run: python3 -c 'import json, os; c=json.load(open("ci/config.json")); open(os.environ["GITHUB_OUTPUT"], "a").write("commit=" + c["hostCommit"] + "\n")'
       - name: Checkout fixed host and nested source pins
         if: steps.release.outputs.published != 'true'
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: HunYuan2333/Phinix-Rework
-          ref: 403cea6c207a630fae391c6dc29bbce5a5a17b3b
+          ref: ${{ steps.host.outputs.commit }}
           submodules: recursive
           persist-credentials: false
           path: .ci-host

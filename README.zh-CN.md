@@ -90,6 +90,7 @@ python3 check-source.py
 python3 pack.py \
   --phinix-package <path-to-Phinix-Rework> \
   --game-references <path-to-RimWorld-Managed> \
+  --framework-references <path-to-dotnet-framework-reference-assemblies> \
   --packager <path-to-ManagedPackageTool.dll> \
   --output <path-to-output>/phinix-legacy-redpacket-1.0.2.zip
 ```

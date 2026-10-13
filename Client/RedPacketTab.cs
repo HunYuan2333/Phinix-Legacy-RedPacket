@@ -73,6 +73,22 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private IInventoryReadApi inventoryRead;
         private IInventoryReservationApi inventoryReservations;
         private volatile bool itemsDirty = true;
+        private RedPacketStackTemplate.GroupingJob groupingJob;
+        private List<RedPacketAvailableItem> pendingItems;
+        private string groupingUuid;
+        internal bool PresentationItemsLoading=>groupingJob!=null;
+        internal void AdvanceItemGrouping()
+        {
+            if(groupingJob==null)return;
+            if(itemsDirty||!ReferenceEquals(itemsGame,Current.Game)||groupingUuid!=LocalUuid){ClearItems();return;}
+            try
+            {
+                if(!groupingJob.Advance(2,2048,group=>pendingItems.Add(RedPacketAvailableItem.FromPhysical(group))))return;
+                groupingJob.Dispose();groupingJob=null;
+                availableItems=pendingItems;pendingItems=null;UpdateFilteredItems();presentation?.InvalidateItems();
+            }
+            catch(Exception error){ClearItems();log?.Invoke("[RedPacket] Item grouping failed: "+error,LogLevel.WARNING);}
+        }
         private Game itemsGame;
         private int cachedPendingSendCount = -1;
         private string cachedPendingSendText;
@@ -115,10 +131,35 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private string LocalUuid => session?.Uuid ?? string.Empty;
 
+        private RedPacketPresentation presentation;
+        internal void StartPresentation(RedPacketHostPresentation host,RedPacketSettingsPanel panel)
+        {if(host==null)return;try{presentation=new RedPacketPresentation(this,stateMachine,host,settingsContext,settings,log);panel.BindPresentation(presentation);}catch{host.Dispose();throw;}}
+        internal void StopPresentation(){var old=presentation;presentation=null;try{old?.Dispose();}finally{if(groupingJob!=null)ClearItems();}}
+        public void ViewOpened()=>presentation?.Open();
+        public void ViewUpdate()=>presentation?.Update();
+        public void ViewClosed(){presentation?.Close();if(groupingJob!=null)ClearItems();}
         public void Draw(Rect inRect)
         {
+            if(presentation!=null){presentation.Draw(inRect);return;}
             using (RedPacketTheme.BeginDraw()) DrawContents(inRect);
         }
+        internal bool PresentationOnline=>IsOnline;
+        internal string PresentationUuid=>LocalUuid;
+        internal DateTime PresentationCooldown=>nextSendAllowedUtc;
+        internal bool PresentationItemsDirty=>itemsDirty||!ReferenceEquals(itemsGame,Current.Game);
+        internal IList<RedPacketAvailableItem> PresentationItems=>filteredItems;
+        internal void PresentationRefresh(){RefreshAvailableItems();}
+        internal void PresentationSearch(string text){searchText=text;UpdateFilteredItems();}
+        internal bool PresentationHasItem(RedPacketAvailableItem item)=>availableItems.Contains(item);
+        internal void PresentationQuantity(RedPacketAvailableItem item,int quantity)
+        {
+            if(!availableItems.Contains(item))throw new InvalidOperationException("RedPacketItemContextExpired");
+            if(selectedStack!=item&&selectedStack!=null)selectedStack.Selected=0;
+            selectedStack=item;item.Selected=quantity;
+        }
+        internal bool PresentationSend(string count,RedPacketType type)
+        {packetCountText=count;selectedType=type;DateTime before=nextSendAllowedUtc;TrySendPacket();return nextSendAllowedUtc>before;}
+
 
         private void DrawContents(Rect inRect)
         {
@@ -203,11 +244,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void ClearItems()
         {
+            groupingJob?.Dispose();groupingJob=null;
+            if(pendingItems!=null){foreach(var item in pendingItems)item.Dispose();pendingItems=null;}
             foreach (RedPacketAvailableItem item in availableItems) item.Dispose();
             availableItems.Clear();
             filteredItems.Clear();
             selectedStack = null;
             itemsDirty = true;
+            presentation?.InvalidateItems();
         }
 
         private void RefreshAvailableItems()
@@ -217,13 +261,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
             itemsGame = Current.Game;
             List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
             bool allItemsTradable = settingsContext != null && settingsContext.Get("trade.allItemsTradable", false);
-            availableItems = RedPacketStackTemplate.GroupPhysical(StackedThings.GroupThings(
-                StoredThingCollector.Collect(homeMaps, allItemsTradable, log).Where(thing =>
-                    thing.def.category == ThingCategory.Item
-                    && !thing.def.IsCorpse
-                    && !(thing is MinifiedThing)),
-                log
-            ), log).Select(RedPacketAvailableItem.FromPhysical).ToList();
+            var sources=new[]{new StackedThings(StoredThingCollector.Collect(homeMaps,allItemsTradable,log).Where(thing=>thing.def.category==ThingCategory.Item&&!thing.def.IsCorpse&&!(thing is MinifiedThing)))};
+            bool incremental=presentation!=null;
+            if(incremental){groupingUuid=LocalUuid;groupingJob=RedPacketStackTemplate.BeginGrouping(sources,log);pendingItems=new List<RedPacketAvailableItem>();}
+            else availableItems=RedPacketStackTemplate.GroupPhysical(sources,log).Select(RedPacketAvailableItem.FromPhysical).ToList();
+            var candidates=incremental?pendingItems:availableItems;
             if (inventoryReservations != null)
             {
                 foreach (InventoryEntry entry in inventoryReservations.GetAvailableSnapshot())
@@ -234,7 +276,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                         preview = inventoryReservations.CreatePreview(entry.EntryId);
                         if (!preview.Succeeded || preview.Things.Count != 1) continue;
                         RedPacketAvailableItem item = RedPacketAvailableItem.FromInventory(entry, preview.Things[0]);
-                        availableItems.Add(item);
+                        candidates.Add(item);
                         preview = null; // the candidate owns this preview until refresh/shutdown
                     }
                     catch (Exception exception)

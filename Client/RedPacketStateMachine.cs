@@ -395,9 +395,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public bool IsSpecialPacketItem(TradeItemSnapshot template)
         {
-            if (template == null || string.IsNullOrEmpty(template.DefName)) return false;
-            return SpecialPacketDefs.Contains(template.DefName);
+            return IsSpecialPacketDefinition(template?.DefName);
         }
+
+        internal bool IsSpecialPacketDefinition(string defName)=>!string.IsNullOrEmpty(defName)&&SpecialPacketDefs.Contains(defName);
 
         public int GetLuckyAlgorithmVersionForType(RedPacketType packetType)
         {
@@ -968,9 +969,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     PendingClaims.Remove(packetId);
                 }
             }
-            MarkBadgeDirty();
-
             if (timedOut.Count == 0) return;
+            MarkBadgeDirty();
 
             foreach (string packetId in timedOut)
             {
@@ -1203,7 +1203,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        private static bool IsUnknownTemplate(TradeItemSnapshot template)
+        internal static bool IsUnknownTemplate(TradeItemSnapshot template)
         {
             if (template == null || string.IsNullOrEmpty(template.DefName)) return true;
 
@@ -1213,7 +1213,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return def.defName == "UnknownItem";
         }
 
-        private static bool IsMinifiedTemplate(TradeItemSnapshot template)
+        internal static bool IsMinifiedTemplate(TradeItemSnapshot template)
         {
             if (template == null) return false;
             if (template.InnerItem != null) return true;
@@ -1929,6 +1929,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             List<ExpirySettlement> settlements = new List<ExpirySettlement>();
             List<PacketSummary> summaries = new List<PacketSummary>();
+            bool changed = false;
             lock (PacketsLock)
             {
                 foreach (KeyValuePair<string, RedPacket> entry in Packets)
@@ -1938,6 +1939,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     if (packet.Expired || packet.CompletedAtUtc.HasValue || now < packet.ExpiresAtUtc) continue;
 
                     packet.Expired = true;
+                    changed = true;
                     PendingClaims.Remove(packet.Id);
                     AuthorizedLocalClaims.Remove(packet.Id);
                     if (!packet.CompletedAtUtc.HasValue)
@@ -1995,7 +1997,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 returnedCounts.TryGetValue(summary.Packet.Id, out returnedCount);
                 QueueSenderSummary(summary.Packet, summary.Claims, summary.CompletedAtUtc, expired: true, returnedCount: returnedCount);
             }
-            MarkBadgeDirty();
+            if (changed) MarkBadgeDirty();
         }
 
         private void CleanupFinishedPackets()

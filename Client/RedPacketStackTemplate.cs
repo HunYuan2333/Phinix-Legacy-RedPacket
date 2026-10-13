@@ -5,6 +5,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Reflection;
+using System.Diagnostics;
 using Phinix.TradeExtension.Client;
 using Utils;
 using System.Xml;
@@ -34,7 +36,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (things.Count == 1) return CaptureCount(first, expectedCount, serialize);
 
             // CanStackWith alone is insufficient: mods may average or accumulate state when merging.
-            // Known per-unit components require identical complete state; unknown implementations stay single-stack.
+            // Known per-unit and provably stateless components require identical complete state; unclassified state stays single-stack.
             if (things.Any(t => !IsKnownPerUnitStack(t))) throw Incompatible("UnsupportedComponent");
             string state = null;
             foreach (Thing thing in things)
@@ -115,47 +117,130 @@ namespace Phinix.LegacyRedPacketExtension.Client
             internal string RestrictionKey { get; }
         }
 
-        // Group once during the UI refresh, using the same complete-state policy as send.
-        // Unknown components stay individually selectable; no per-mod exception list.
-        internal static IEnumerable<StackedThings> GroupPhysical(IEnumerable<StackedThings> stacks,
-            Action<string, LogLevel> log, Func<Thing, TradeItemSnapshot> serialize = null)
+        private sealed class CoarseKey : IEquatable<CoarseKey>
         {
-            serialize = serialize ?? TradeItemConverter.ConvertThingFromVerse;
-            int inspected = 0, failures = 0, characterBudget = 4 * 1024 * 1024;
-            string firstFailure = null;
-            foreach (StackedThings stack in stacks)
+            private readonly Type type;
+            private readonly ThingDef definition, stuff;
+            private readonly int hitPoints, quality;
+            private readonly string components;
+            internal CoarseKey(Thing thing)
             {
-                var groups = new Dictionary<string, List<Thing>>(StringComparer.Ordinal);
-                foreach (Thing thing in stack.Things)
+                type=thing.GetType();definition=thing.def;stuff=thing.Stuff;hitPoints=thing.HitPoints;
+                var comps=(thing as ThingWithComps)?.AllComps;
+                var qualityComp=comps?.OfType<CompQuality>().FirstOrDefault();
+                quality=qualityComp==null?-1:(int)qualityComp.Quality;
+                // Component types are cheap facts, not component state or serialization.
+                components=comps==null?"":string.Join("|",comps.Select(c=>c.GetType().AssemblyQualifiedName).OrderBy(n=>n,StringComparer.Ordinal));
+            }
+            public bool Equals(CoarseKey other)=>other!=null&&type==other.type&&ReferenceEquals(definition,other.definition)&&ReferenceEquals(stuff,other.stuff)&&hitPoints==other.hitPoints&&quality==other.quality&&components==other.components;
+            public override bool Equals(object other)=>Equals(other as CoarseKey);
+            public override int GetHashCode()
+            {unchecked {int hash=type.GetHashCode();hash=hash*31+(definition?.GetHashCode()??0);hash=hash*31+(stuff?.GetHashCode()??0);hash=hash*31+hitPoints;hash=hash*31+quality;return hash*31+components.GetHashCode();}}
+        }
+        private sealed class ExactGroup
+        {
+            internal string State;
+            internal readonly List<Thing> Things=new List<Thing>();
+        }
+
+        // Refresh-local index: cheap necessary conditions, then fingerprint, then exact state.
+        // Never cache mutable item snapshots across refreshes. Send still captures intact sources again.
+        internal static IEnumerable<StackedThings> GroupPhysical(IEnumerable<StackedThings> stacks,
+            Action<string, LogLevel> log, Func<Thing, TradeItemSnapshot> serialize = null, Func<string,string> fingerprint = null)
+        {
+            return GroupPhysicalSteps(stacks,log,serialize,fingerprint).Where(group=>group!=null);
+        }
+        internal static GroupingJob BeginGrouping(IEnumerable<StackedThings> stacks, Action<string,LogLevel> log,
+            Func<Thing,TradeItemSnapshot> serialize=null)=>new GroupingJob(GroupPhysicalSteps(stacks,log,serialize,null));
+        internal sealed class GroupingJob : IDisposable
+        {
+            private IEnumerator<StackedThings> work;
+            private readonly List<StackedThings> results=new List<StackedThings>();
+            internal bool Completed { get; private set; }
+            internal IReadOnlyList<StackedThings> Results=>Completed?results:throw new InvalidOperationException("GroupingIncomplete");
+            internal GroupingJob(IEnumerable<StackedThings> steps){work=steps.GetEnumerator();}
+            // Cooperative main-thread slice; one serializer call cannot be preempted.
+            internal bool Advance(double milliseconds=2,int maximumSteps=2048,Action<StackedThings> ready=null)
+            {
+                if(milliseconds<=0||double.IsNaN(milliseconds)||double.IsInfinity(milliseconds)||maximumSteps<1)throw new ArgumentOutOfRangeException();
+                if(work==null)return Completed;
+                long start=Stopwatch.GetTimestamp();int steps=0;
+                try
                 {
-                    string key = null;
-                    if (IsKnownPerUnitStack(thing) && inspected < MaxStacks && characterBudget > 0)
+                    do
+                    {
+                        if(!work.MoveNext()){Completed=true;work.Dispose();work=null;return true;}
+                        if(work.Current!=null){results.Add(work.Current);ready?.Invoke(work.Current);}
+                        steps++;
+                    }while(steps<maximumSteps&&(Stopwatch.GetTimestamp()-start)*1000d/Stopwatch.Frequency<milliseconds);
+                    return false;
+                }
+                catch {Dispose();throw;}
+            }
+            public void Dispose(){var old=work;work=null;old?.Dispose();if(!Completed)results.Clear();}
+        }
+        private static IEnumerable<StackedThings> GroupPhysicalSteps(IEnumerable<StackedThings> stacks,
+            Action<string,LogLevel> log,Func<Thing,TradeItemSnapshot> serialize,Func<string,string> fingerprint)
+        {
+            serialize=serialize??TradeItemConverter.ConvertThingFromVerse;
+            int inspected=0,failures=0,characterBudget=4*1024*1024;
+            string firstFailure=null;
+            var buckets=new Dictionary<CoarseKey,List<Thing>>();
+            foreach(var stack in stacks)
+                foreach(var thing in stack.Things)
+                {
+                    yield return null;
+                    if(thing==null||thing.Destroyed||thing.def==null||thing.stackCount<1)continue;
+                    if(!IsKnownPerUnitStack(thing))
+                    {yield return new PhysicalGroup(new[]{thing},"Phinix_legacyRedpacket_singleStackOnly");continue;}
+                    var key=new CoarseKey(thing);
+                    if(!buckets.TryGetValue(key,out var bucket))buckets[key]=bucket=new List<Thing>();
+                    bucket.Add(thing);
+                }
+            using(var hash=SHA256.Create())
+            foreach(var bucket in buckets.Values)
+            {
+                // A singleton has no merge candidate and needs no save/parse/hash work.
+                if(bucket.Count==1){yield return new PhysicalGroup(bucket,null);continue;}
+                var index=new Dictionary<string,List<ExactGroup>>(StringComparer.Ordinal);
+                foreach(var thing in bucket)
+                {
+                    yield return null;
+                    string state=null,key=null;
+                    if(inspected<MaxStacks&&characterBudget>0)
                     {
                         inspected++;
                         try
                         {
-                            string state = ComparableState(serialize(thing));
-                            characterBudget -= state.Length;
-                            if (state.Length <= 128 * 1024 && characterBudget >= 0)
-                                using (var hash = SHA256.Create())
-                                    key = Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(state)));
+                            var snapshot=serialize(thing);
+                            if(snapshot==null||snapshot.StackCount!=thing.stackCount)throw Incompatible("SnapshotInvalid");
+                            state=ComparableState(snapshot,128*1024);characterBudget-=state.Length;
+                            if(state.Length<=128*1024&&characterBudget>=0)
+                                key=fingerprint==null?Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(state))):fingerprint(state);
                         }
-                        catch (Exception exception)
+                        catch(Exception exception)
                         {
-                            failures++; firstFailure = firstFailure ?? exception.GetType().Name;
+                            // Failed/oversized decoding also consumes work. Otherwise every
+                            // rejected source bypasses the aggregate inspection budget.
+                            characterBudget=Math.Max(0,characterBudget-128*1024);
+                            failures++;firstFailure=firstFailure??exception.GetType().Name;
                         }
                     }
-                    if (key == null) { yield return new PhysicalGroup(new[] { thing }, "Phinix_legacyRedpacket_singleStackOnly"); continue; }
-                    if (!groups.TryGetValue(key, out List<Thing> group)) groups[key] = group = new List<Thing>();
-                    if (group.Count > 0 && (!thing.CanStackWith(group[0]) || !group[0].CanStackWith(thing)))
-                    { yield return new PhysicalGroup(new[] { thing }, "Phinix_legacyRedpacket_singleStackOnly"); continue; }
-                    group.Add(thing);
+                    if(key==null){yield return new PhysicalGroup(new[]{thing},"Phinix_legacyRedpacket_singleStackOnly");continue;}
+                    if(!index.TryGetValue(key,out var candidates))index[key]=candidates=new List<ExactGroup>();
+                    ExactGroup group=null;
+                    foreach(var candidate in candidates)
+                        if(string.Equals(candidate.State,state,StringComparison.Ordinal)&&thing.CanStackWith(candidate.Things[0])&&candidate.Things[0].CanStackWith(thing))
+                        {group=candidate;break;}
+                    if(group==null){group=new ExactGroup{State=state};candidates.Add(group);}
+                    group.Things.Add(thing);
+                    yield return null;
                 }
-                foreach (List<Thing> group in groups.Values)
-                    yield return new PhysicalGroup(group, groups.Count > 1 ? "Phinix_legacyRedpacket_stateGroup" : null);
+                foreach(var candidates in index.Values)
+                    foreach(var group in candidates)
+                        yield return new PhysicalGroup(group.Things,index.Count>1||candidates.Count>1?"Phinix_legacyRedpacket_stateGroup":null);
             }
-            if (failures > 0) log?.Invoke("[RedPacket] Stack inspection limited failures=" + failures +
-                " reason=" + firstFailure + "; affected stacks remain individually selectable.", LogLevel.WARNING);
+            if(failures>0)log?.Invoke("[RedPacket] Stack inspection limited failures="+failures+" reason="+firstFailure+"; affected stacks remain individually selectable.",LogLevel.WARNING);
         }
 
         internal static TradeItemSnapshot CaptureCount(Thing thing, int count, Func<Thing, TradeItemSnapshot> serialize = null)
@@ -181,7 +266,24 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return comps == null || comps.All(comp => comp != null &&
                 (comp.GetType() == typeof(CompForbiddable) || comp.GetType() == typeof(CompQuality) ||
                  comp.GetType() == typeof(CompColorable) || comp.GetType() == typeof(CompRottable) ||
-                 comp.GetType() == typeof(CompIngredients)));
+                 comp.GetType() == typeof(CompIngredients) || IsStatelessComponent(comp)));
+        }
+
+        private static readonly Dictionary<Type, bool> statelessComponents = new Dictionary<Type, bool>();
+        private static bool IsStatelessComponent(object component)
+        {
+            Type type = component.GetType();
+            lock (statelessComponents)
+            {
+                if (statelessComponents.TryGetValue(type, out bool result)) return result;
+                result = typeof(ThingComp).IsAssignableFrom(type);
+                for (Type current = type; result && current != typeof(ThingComp); current = current.BaseType)
+                    result = current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Length == 0;
+                foreach (string method in new[] { "PostExposeData", "PreAbsorbStack", "PostSplitOff", "AllowStackWith" })
+                    result &= type.GetMethod(method, BindingFlags.Public | BindingFlags.Instance)?.DeclaringType == typeof(ThingComp);
+                statelessComponents[type] = result;
+                return result;
+            }
         }
 
         private static RedPacketSelectionException Incompatible(string reason = "StateDifferent")
@@ -200,7 +302,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return parts;
         }
 
-        private static XmlDocument ReadDocument(TradeItemSnapshot snapshot)
+        private static XmlDocument ReadDocument(TradeItemSnapshot snapshot, int maximumXmlBytes = MaxXmlBytes)
         {
             if (snapshot == null || snapshot.StateCodecId != StatefulTradeItemProtocol.ScribeCodecId ||
                 snapshot.StatePayload == null || snapshot.StatePayload.Length < 1 ||
@@ -214,12 +316,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 byte[] buffer = new byte[8192]; int count;
                 while ((count = gzip.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    if (output.Length + count > MaxXmlBytes) throw Incompatible();
+                    if (output.Length + count > maximumXmlBytes) throw Incompatible();
                     output.Write(buffer, 0, count);
                 }
                 output.Position = 0;
                 using (var reader = XmlReader.Create(output, new XmlReaderSettings {
-                    DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxXmlBytes }))
+                    DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = maximumXmlBytes }))
                     document.Load(reader);
             }
             XmlElement root = document.DocumentElement;
@@ -227,9 +329,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return document;
         }
 
-        internal static string ComparableState(TradeItemSnapshot snapshot)
+        internal static string ComparableState(TradeItemSnapshot snapshot, int maximumXmlBytes = MaxXmlBytes)
         {
-            XmlDocument document = ReadDocument(snapshot);
+            XmlDocument document = ReadDocument(snapshot, maximumXmlBytes);
             XmlElement root = document.DocumentElement;
             // Only top-level identity, quantity and transfer placement are excluded.
             // Keep tickDelta, quest tags, graphics, health, stuff and every nested component field.

@@ -9,6 +9,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Compatibility/ThemeAdapter.cs" />
+    <Compile Include="Compatibility/PresentationAdapter.cs" />
+    <Compile Include="RedPacketPresentation.cs" />
+    <Compile Include="RedPacketPresentationRules.cs" />
     <Compile Include="RedPacketTheme.cs" />
     <Compile Include="Compatibility/IRedPacketAnnouncementSender.cs" />
     <Compile Include="Compatibility/ClientAdapters.cs" />

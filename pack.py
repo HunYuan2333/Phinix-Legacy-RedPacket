@@ -12,6 +12,7 @@ def main():
     parser.add_argument('--phinix-package', type=Path, required=True)
     parser.add_argument('--game-references', type=Path, required=True)
     parser.add_argument('--harmony-references', type=Path)
+    parser.add_argument('--framework-references', type=Path, help='Compile-only .NET Framework identities for offline package validation')
     parser.add_argument('--packager', type=Path, required=True, help='ManagedPackageTool.dll, built from trusted Phinix source')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--version', help='CI release version; defaults to publication.json')
@@ -44,6 +45,9 @@ def main():
     references += list(game.glob('*.dll'))
     if args.harmony_references:
         references += [args.harmony_references.resolve() / '0Harmony.dll']
+    if args.framework_references:
+        references += list(args.framework_references.resolve().glob('*.dll'))
+        references += list((args.framework_references.resolve() / 'Facades').glob('*.dll'))
     for path in sorted(set(references)):
         command += ['--host-assembly', str(path)]
     if args.bundle_output:
