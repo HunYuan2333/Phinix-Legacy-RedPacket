@@ -63,3 +63,8 @@ class DualBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'digest'):build.provision(archive,host,'0'*64,'1.7')
             build.provision(archive,host,build.sha(archive),'1.7')
             self.assertEqual((host/'GameDlls17/Assembly-CSharp.dll').read_bytes(),b'ref')
+
+class CloudRestoreTests(unittest.TestCase):
+    def test_ci_uses_explicit_cloud_restore(self):
+        source=(Path(__file__).parents[1]/'build.py').read_text()
+        self.assertIn("'--online-restore'",source)

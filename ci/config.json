@@ -4,7 +4,7 @@
   "baseVersion": "1.2.4",
   "assetPrefix": "phinix-legacy-redpacket",
   "name": "Phinix Rework RedPacket",
-  "hostCommit": "3fd389e3049e653b1896a9abaf75b1232894c60c",
+  "hostCommit": "afb6afb6c5f68b8815964ebab7092a1b033b682e",
   "references": {
     "repository": "HunYuan2333/Phinix-Rework-Build-References",
     "tag": "refs-rw16-v3",
