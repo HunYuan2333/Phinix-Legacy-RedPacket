@@ -133,7 +133,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
             tab.AdvanceItemGrouping();
             // Inputs belong to the item rendered by this revision; switching rows must not retarget its fields.
             var renderedItem=selectedItem;
-            while(host.Input(view,out var input))
+            // Drain while the rendered revision is still current. Applying the first
+            // edit marks this owner dirty and can change selection/filter context;
+            // either makes subsequent Host reads discard the remaining IME events.
+            foreach(var input in ReadInputBatch())
             {
                 if(input.Revision!=revision)continue;
                 if(input.Id=="search"){search=input.Value??"";itemPage=0;tab.PresentationSearch(search);}
@@ -190,6 +193,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 dirty=false;try {host.Publish(view,MainId,"",ticket,sections,batch,current,3,L("sendTitle"),L("listTitle"),1);}catch{dirty=true;throw;}
             }
             shownTimeState=timeState;second=tick;badgeVersion=bv;sendCount=pc;themeVersion=tv;pointVersion=pv;language=lang;game=expectedGame;shownUuid=uuid;shownOnline=online;shownPacketState=pickedState;result=host.LastResult(view);
+        }
+        private List<HostInput> ReadInputBatch()
+        {
+            var batch=new List<HostInput>();
+            while(host.Input(view,out var input))
+                if(input.Revision==revision)batch.Add(input);
+            return batch;
         }
         internal void DrawSettingsLauncher(Rect rect){if(!disposed&&host.Button(rect,L("uiSettings")))OpenSettings();}
         private void OpenSettings()
