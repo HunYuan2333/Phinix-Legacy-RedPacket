@@ -64,6 +64,7 @@ internal static class CurrentProbe
         services.View.Inputs.Enqueue(new ClientPresentationInput(1,"quantity",ClientPresentationInputKind.TextChanged,"100"));
         var method=bridgeType.GetMethod("Input",Private);object[] inputArgs={view,null};
         Program.Check((bool)method.Invoke(bridge,inputArgs)&&(string)Get(inputArgs[1],"Value")=="100"&&(long)Get(inputArgs[1],"Revision")==1,"Revisioned Host input is preserved by the adapter");
+        CheckImeInputBatch(candidate,bridge);
         ((IDisposable)view).Dispose();Program.Check((bool)Call(bridge,"Closed",view)&&services.SetsDisposed==1,"Closing the view releases its transferred set");
         var orphan=new RedPacketPresentationActionContext("gone",2,null,null,0,0,0,null,false,false,0);
         object empty=Call(bridge,"Collect",orphan,(Func<bool>)(()=>true),Array.CreateInstance(actionType,0));Program.Check(((IList)Get(empty,"Bindings")).Count==0,"Closed/foreign view identity grants no official operation");((IDisposable)empty).Dispose();
@@ -76,6 +77,26 @@ internal static class CurrentProbe
         Program.Check(cleanupFailed&&sourceToken.Calls==1&&codecToken.Calls==1,"Actual module continues cleanup after a source lease failure");
         actualModule.Shutdown(host);Program.Check(sourceToken.Calls==1&&codecToken.Calls==1,"Actual module repeated shutdown does not release old tokens twice");
 
+    }
+    private static void CheckImeInputBatch(Assembly candidate,object bridge)
+    {
+        var type=candidate.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketPresentation",true);
+        var owner=System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+        var view=(View)Call(bridge,"Open","ime");
+        Set(owner,"host",bridge);Set(owner,"view",view);Set(owner,"revision",7L);Set(owner,"dirty",false);
+        view.Publish(new ClientPresentationPage("ime","",7,new[]{new ClientPresentationSection("search","","",fields:new[]{new ClientPresentationTextField("search","","")})}),null,()=>!(bool)Get(owner,"dirty"));
+        Action enqueue=()=>{foreach(string text in new[]{"医","医疗","医疗包"})view.Inputs.Enqueue(new ClientPresentationInput(7,"search",ClientPresentationInputKind.TextChanged,text));};
+        enqueue();int oldCount=0;
+        while(true){object[] args={view,null};if(!(bool)bridge.GetType().GetMethod("Input",Private).Invoke(bridge,args))break;oldCount++;Set(owner,"dirty",true);}
+        Program.Check(oldCount==1&&view.Inputs.Count==0,"Per-event owner invalidation reproduces first-character-only candidate submission");
+        Set(owner,"dirty",false);enqueue();
+        var batch=(IList)Call(owner,"ReadInputBatch");string final="";
+        foreach(var input in batch){final=(string)Get(input,"Value");Set(owner,"dirty",true);}
+        Program.Check(batch.Count==3&&final=="医疗包"&&view.Inputs.Count==0,"Actual owner input batching preserves every IME draft before applying invalidation");
+        enqueue();Program.Check(((IList)Call(owner,"ReadInputBatch")).Count==0,"Already stale page still rejects queued edits");
+        Set(owner,"dirty",false);view.Inputs.Enqueue(new ClientPresentationInput(6,"search",ClientPresentationInputKind.TextChanged,"stale"));enqueue();
+        batch=(IList)Call(owner,"ReadInputBatch");Program.Check(batch.Count==3&&batch.Cast<object>().All(i=>(long)Get(i,"Revision")==7),"Batch retains rendered revision ownership");
+        view.Dispose();
     }
     private sealed class OnlineSession : IClientSessionContext
     {public bool Authenticated=>true;public bool LoggedIn=>true;public string SessionId=>"test";public string Uuid=>"viewer";}
@@ -144,11 +165,11 @@ internal static class CurrentProbe
     }
     private sealed class View : IClientPresentationSession
     {
-        private readonly Services s;private IClientActionSet set;public ClientPresentationPage Page;public readonly Queue<ClientPresentationInput> Inputs=new Queue<ClientPresentationInput>();
+        private readonly Services s;private IClientActionSet set;private Func<bool> current;public ClientPresentationPage Page;public readonly Queue<ClientPresentationInput> Inputs=new Queue<ClientPresentationInput>();
         public View(Services s,string id){this.s=s;PageId=id;}public string OwnerId=>"builtin.legacy-redpacket";public string PageId {get;}public bool IsClosed {get;private set;}public string FailureCode=>null;public ClientActionExecutionResult LastActionResult=>null;
-        public void Publish(ClientPresentationPage page,IClientActionSet owned,Func<bool> current){set?.Dispose();set=owned;Page=page;}
+        public void Publish(ClientPresentationPage page,IClientActionSet owned,Func<bool> current){set?.Dispose();set=owned;Page=page;this.current=current;}
         public void Draw(Rect rect){}public float MeasureComposerHeight(float width)=>0;
-        public bool TryDequeueInput(out ClientPresentationInput input){input=Inputs.Count==0?null:Inputs.Dequeue();return input!=null;}
+        public bool TryDequeueInput(out ClientPresentationInput input){input=null;if(current!=null&&!current()){Inputs.Clear();return false;}input=Inputs.Count==0?null:Inputs.Dequeue();return input!=null;}
         public string ComposerDraft=>"";public string ComposerControlName=>"";public bool ComposerFocused=>false;public void SetComposerDraft(string value){}public void RequestComposerFocus(){}public void InvokeAction(string id){}public List<Verse.FloatMenuOption> CreateActionMenuOptions()=>new List<Verse.FloatMenuOption>();public void ScrollToRow(string feed,string row){}public void ScrollToEnd(){}
         public void Dispose(){if(IsClosed)return;IsClosed=true;set?.Dispose();set=null;}
     }
