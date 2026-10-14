@@ -1,7 +1,7 @@
 {
   "repository": "HunYuan2333/Phinix-Legacy-RedPacket",
   "kind": "redpacket",
-  "baseVersion": "1.2.0",
+  "baseVersion": "1.2.4",
   "assetPrefix": "phinix-legacy-redpacket",
   "name": "Phinix Rework RedPacket",
   "hostCommit": "783fcb0bb6ad56b97e8ca5875457babfe6520c25",
