@@ -4,7 +4,7 @@
   "baseVersion": "1.2.0",
   "assetPrefix": "phinix-legacy-redpacket",
   "name": "Phinix Rework RedPacket",
-  "hostCommit": "783fcb0bb6ad56b97e8ca5875457babfe6520c25",
+  "hostCommit": "3fd389e3049e653b1896a9abaf75b1232894c60c",
   "references": {
     "repository": "HunYuan2333/Phinix-Rework-Build-References",
     "tag": "refs-rw16-v3",
@@ -12,6 +12,19 @@
     "sha256": "f4a7ce75b1ab3ff4eef532be333f54d4faac2ca40e9ebfae04ab9964e12aac12"
   },
   "requiredPresentationMembers": [
-    "WithIconSource"
-  ]
+    "WithImage",
+    "WithCompactRows",
+    "WithInlineToolbar"
+  ],
+  "clientApi": "3.0.0",
+  "games": [
+    "1.6",
+    "1.7"
+  ],
+  "references17": {
+    "repository": "HunYuan2333/Phinix-Rework-Build-References",
+    "tag": "refs-rw17-v1",
+    "asset": "references-rw17-v1.zip",
+    "sha256": "41ddc7bc1dbf5bfe39059e549dd77310823621cbd46171214b43652ad10226bf"
+  }
 }

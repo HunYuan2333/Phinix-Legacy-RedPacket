@@ -29,15 +29,15 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(result['tag_name'],'v1.2.1');self.assertTrue(result['draft']);self.assertEqual(len(posts),1)
     def test_missing_host_contract_blocks_build(self):
         with tempfile.TemporaryDirectory() as folder:
-            with self.assertRaises(ValueError):build.verify_host_api(Path(folder),{'requiredPresentationMembers':['WithIconSource']})
+            with self.assertRaises(ValueError):build.verify_host_api(Path(folder),{'requiredPresentationMembers':['WithImage']})
     def test_old_host_member_blocks_build(self):
         with tempfile.TemporaryDirectory() as folder:
-            host=Path(folder);file=host/'Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs';file.parent.mkdir(parents=True);file.write_text('public class ClientPresentationRow {}')
-            with self.assertRaises(ValueError):build.verify_host_api(host,{'requiredPresentationMembers':['WithIconSource']})
+            host=Path(folder);file=host/'Client/PresentationContracts/UI/IClientPresentationService.cs';file.parent.mkdir(parents=True);file.write_text('public class ClientPresentationRow {}')
+            with self.assertRaises(ValueError):build.verify_host_api(host,{'requiredPresentationMembers':['WithImage']})
     def test_current_member_passes_precheck(self):
         with tempfile.TemporaryDirectory() as folder:
-            host=Path(folder);file=host/'Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs';file.parent.mkdir(parents=True);file.write_text('public ClientPresentationRow WithIconSource(Func<Texture> source) => null;')
-            build.verify_host_api(host,{'requiredPresentationMembers':['WithIconSource']})
+            host=Path(folder);file=host/'Client/PresentationContracts/UI/IClientPresentationService.cs';file.parent.mkdir(parents=True);file.write_text('public ClientPresentationRow WithImage(IClientPresentationImage source) => null;'); tool=host/'tools/compatibility/build-managed-dual.py';tool.parent.mkdir(parents=True);tool.write_text('# test fixture')
+            build.verify_host_api(host,{'requiredPresentationMembers':['WithImage']})
 
 if __name__=='__main__':unittest.main()
 
@@ -54,5 +54,5 @@ class PackagingEntryTests(unittest.TestCase):
         self.assertRegex(c['hostCommit'], r'^[0-9a-f]{40}$')
         self.assertNotIn('compileHostCommit', c)
         script=(Path(__file__).resolve().parents[2] / 'pack.py').read_text()
-        self.assertIn("'--compile-client-api', '2.0.0'", script)
-        self.assertIn("'--abstractions-range', '>=2.0.0 <3.0.0'", script)
+        self.assertIn('compile-client-api 3.0.0', script)
+        self.assertIn('>=3.0.0 <4.0.0', script)

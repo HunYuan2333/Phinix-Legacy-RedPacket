@@ -1,5 +1,7 @@
 # Phinix 旧版红包插件
 
+> **当前迁移构建 / Current migration build:** API3 单包兼容 1.6/1.7；命令和上线缺项以 [BUILDING-DUAL.md](BUILDING-DUAL.md) 为准。未部署线上流程；下文早期发行记录不代表当前迁移包的兼容范围。
+
 <p align="center">
   <a href="./README.md">English</a> · 简体中文
 </p>
@@ -83,16 +85,13 @@ Phinix 经典红包服务的官方托管插件移植版本（包 ID: `phinix.leg
 需要 .NET 10 SDK、本地 Phinix-Rework 源码及 RimWorld 1.6 依赖：
 
 ```bash
-# 核验源码与引用归属
-python3 check-source.py
-
-# 打包候选 ZIP
 python3 pack.py \
-  --phinix-package <path-to-Phinix-Rework> \
-  --game-references <path-to-RimWorld-Managed> \
-  --framework-references <path-to-dotnet-framework-reference-assemblies> \
-  --packager <path-to-ManagedPackageTool.dll> \
-  --output <path-to-output>/phinix-legacy-redpacket-1.0.2.zip
+  --phinix-root /path/to/Phinix-Rework \
+  --game-references /path/to/rw16-references \
+  --game17-references /path/to/rw17-references \
+  --harmony17 /path/to/rw17-references/0Harmony.dll \
+  --version 0.0.1 \
+  --output /tmp/phinix-redpacket-dual-local.zip
 ```
 
 严禁将 RimWorld 游戏程序集或宿主程序集打包进分发 ZIP 中。

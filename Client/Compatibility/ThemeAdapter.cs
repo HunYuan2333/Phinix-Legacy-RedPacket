@@ -31,13 +31,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
         internal static IPluginThemeSource Create(ExtensionHostContext host, IPhinixExtensionModule owner,
             string keyNamespace, string ownerLabel, PluginColor[] definitions, Dictionary<string, Color> defaults)
         {
-            var sdk = typeof(IClientSessionContext).Assembly;
+            var sdk = typeof(IClientTheme).Assembly;
             Type serviceType = sdk.GetType("PhinixClient.Framework.IClientTheme", false);
             Type registryType = sdk.GetType("PhinixClient.Framework.IClientThemeRegistry", false);
             Type readerType = sdk.GetType("PhinixClient.Framework.IClientThemeReader", false);
             if (serviceType == null && registryType == null && readerType == null)
             {
-                var compatibility = sdk.GetType("PhinixClient.Framework.ClientAbstractionsCompatibility", true);
+                var compatibility = typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.ClientAbstractionsCompatibility", true);
                 string version = (string)compatibility.GetField("Version").GetRawConstantValue();
                 if (new Version(version).Major >= 2) throw new InvalidOperationException("Current theme API is missing.");
                 return new DefaultSource(defaults);
@@ -49,8 +49,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
             var register = registryType.GetMethod("RegisterModule", new[] { typeof(IPhinixExtensionModule), typeof(string), typeof(string) });
             var capture = serviceType.GetMethod("Capture", Type.EmptyTypes);
             var versionProperty = readerType.GetProperty("Version");
-            var read = readerType.GetMethod("TryGetColor", new[] { typeof(string), typeof(Color).MakeByRefType() });
-            if (register == null || capture == null || versionProperty == null || read == null)
+            var rgba = sdk.GetType("PhinixClient.Framework.ClientRgba", true);
+            var read = readerType.GetMethod("TryGetColor", new[] { typeof(string), rgba.MakeByRefType() });
+            var convert = typeof(ClientColorValues).GetMethod("ToUnityColor", new[] { rgba });
+            if (register == null || capture == null || versionProperty == null || read == null || convert == null)
                 throw new InvalidOperationException("Unsupported theme API shape.");
             object registration = Invoke(register, registry, owner, keyNamespace, ownerLabel);
             var lease = registration as IDisposable;
@@ -58,13 +60,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             try
             {
                 Type registrationType = sdk.GetType("PhinixClient.Framework.IClientThemeRegistration", true);
-                var color = registrationType.GetMethod("RegisterColor", new[] { typeof(string), typeof(Color), typeof(string), typeof(string), typeof(string), typeof(string) });
+                var rgbaConstructor = rgba.GetConstructor(new[] { typeof(float), typeof(float), typeof(float), typeof(float) });
+                var color = registrationType.GetMethod("RegisterColor", new[] { typeof(string), rgba, typeof(string), typeof(string), typeof(string), typeof(string) });
                 var commit = registrationType.GetMethod("Commit", Type.EmptyTypes);
-                if (color == null || commit == null) throw new InvalidOperationException("Unsupported theme registration shape.");
+                if (rgbaConstructor == null || color == null || commit == null) throw new InvalidOperationException("Unsupported theme registration shape.");
                 foreach (var definition in definitions)
-                    Invoke(color, registration, definition.Key, definition.Default, definition.Label, definition.Fallback, ownerLabel, definition.Label);
+                    Invoke(color, registration, definition.Key, rgbaConstructor.Invoke(new object[] { definition.Default.r, definition.Default.g, definition.Default.b, definition.Default.a }), definition.Label, definition.Fallback, ownerLabel, definition.Label);
                 Invoke(commit, registration);
-                var result = new CurrentSource(service, capture, versionProperty, read, lease, defaults);
+                var result = new CurrentSource(service, capture, versionProperty, read, convert, lease, defaults);
                 result.Capture(); // Check the complete palette before activation returns.
                 return result;
             }
@@ -92,14 +95,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private sealed class CurrentSource : IPluginThemeSource
         {
             private object service;
-            private readonly MethodInfo capture, read;
+            private readonly MethodInfo capture, read, convert;
             private readonly PropertyInfo version;
             private IDisposable lease;
             private readonly Dictionary<string, Color> defaults;
             private long cachedVersion = long.MinValue;
             private PluginPalette palette;
-            internal CurrentSource(object service, MethodInfo capture, PropertyInfo version, MethodInfo read, IDisposable lease, Dictionary<string, Color> defaults)
-            { this.service=service; this.capture=capture; this.version=version; this.read=read; this.lease=lease; this.defaults=new Dictionary<string, Color>(defaults); }
+            internal CurrentSource(object service, MethodInfo capture, PropertyInfo version, MethodInfo read, MethodInfo convert, IDisposable lease, Dictionary<string, Color> defaults)
+            { this.service=service; this.capture=capture; this.version=version; this.read=read; this.convert=convert; this.lease=lease; this.defaults=new Dictionary<string, Color>(defaults); }
             public PluginPalette Capture()
             {
                 if (service == null) throw new ObjectDisposedException("Plugin theme");
@@ -109,8 +112,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 var values = new Dictionary<string, Color>(defaults, StringComparer.Ordinal);
                 foreach (string key in defaults.Keys)
                 {
-                    object[] arguments = { key, default(Color) };
-                    if ((bool)Invoke(read, snapshot, arguments)) values[key] = (Color)arguments[1];
+                    object[] arguments = { key, null };
+                    if ((bool)Invoke(read, snapshot, arguments)) values[key] = (Color)Invoke(convert, null, arguments[1]);
                 }
                 palette = new PluginPalette(values); cachedVersion = revision;
                 return palette;

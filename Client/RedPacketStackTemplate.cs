@@ -59,29 +59,37 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Func<Thing, TradeItemSnapshot> serialize = null, Func<Thing, Thing, bool> canStack = null)
         {
             serialize = serialize ?? TradeItemConverter.ConvertThingFromVerse;
-            if (stack == null || count < 1 || stack.Things == null || stack.Things.Count > MaxStacks ||
+            if (stack == null || count < 1 || stack.Things == null || stack.Things.Count == 0 || stack.Things.Count > MaxStacks ||
                 stack.Things.Any(t => t == null || t.Destroyed || t.stackCount < 1) ||
                 stack.Things.Distinct().Count() != stack.Things.Count)
                 throw Incompatible("SelectionChanged");
-            var sources = new List<Thing>();
-            Thing sufficient = stack.Things.FirstOrDefault(t => t.stackCount >= count);
-            if (sufficient != null) sources.Add(sufficient);
-            else
+            // One packet keeps the existing wire template. Choose the complete
+            // state represented by most units, then exhaust that state before
+            // supplementing from other compatible sources. Never absorb Things.
+            var states=new List<ExactGroup>();
+            var coarse=new CoarseKey(stack.Things[0]);
+            canStack=canStack??((a,b)=>a.CanStackWith(b));
+            foreach(var thing in stack.Things)
             {
-                long available = 0;
-                foreach (Thing thing in stack.Things)
-                {
-                    sources.Add(thing); available += thing.stackCount;
-                    if (available >= count) break;
-                }
-                if (available < count) throw Incompatible("SelectionChanged");
+                if(!coarse.Equals(new CoarseKey(thing)) || (!ReferenceEquals(thing,stack.Things[0]) && !GameCanGroup(stack.Things[0],thing,canStack)))throw Incompatible("StackabilityDifferent");
+                var snapshot=serialize(thing);
+                if(snapshot==null || snapshot.StackCount!=thing.stackCount)throw Incompatible("SnapshotInvalid");
+                string state=ComparableState(snapshot);
+                var group=states.FirstOrDefault(g=>g.State==state);
+                if(group==null){group=new ExactGroup{State=state};states.Add(group);}
+                group.Things.Add(thing);
             }
-            if (sources.Count == 0) throw Incompatible("SelectionChanged");
-            // Capture validates every intact source with the inventory's same state policy.
-            long total = sources.Sum(t => (long)t.stackCount);
-            if (total > int.MaxValue) throw Incompatible("SelectionChanged");
-            Capture(sources, (int)total, serialize, canStack);
-            TradeItemSnapshot template = CaptureCount(sources[0], count, serialize);
+            var ordered=states.OrderByDescending(g=>g.Things.Sum(t=>(long)t.stackCount)).ToArray();
+            var sources=new List<Thing>();long available=0;
+            foreach(var thing in ordered.SelectMany(g=>g.Things.OrderByDescending(t=>t.stackCount)))
+            {
+                sources.Add(thing);available+=thing.stackCount;
+                if(available>=count)break;
+            }
+            if(available<count)throw Incompatible("SelectionChanged");
+            for(int i=0;i<sources.Count;i++)for(int j=0;j<i;j++)
+                if(!GameCanGroup(sources[i],sources[j],canStack))throw Incompatible("StackabilityDifferent");
+            TradeItemSnapshot template=CaptureCount(ordered[0].Things[0],count,serialize);
             XmlDocument document = ReadDocument(template);
             // An intact source may be spawned. A wire template must never claim a sender map slot.
             foreach (XmlNode node in document.DocumentElement.ChildNodes.Cast<XmlNode>().Where(n => n.Name == "map"))
@@ -119,23 +127,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private sealed class CoarseKey : IEquatable<CoarseKey>
         {
-            private readonly Type type;
-            private readonly ThingDef definition, stuff;
-            private readonly int hitPoints, quality;
-            private readonly string components;
-            internal CoarseKey(Thing thing)
-            {
-                type=thing.GetType();definition=thing.def;stuff=thing.Stuff;hitPoints=thing.HitPoints;
-                var comps=(thing as ThingWithComps)?.AllComps;
-                var qualityComp=comps?.OfType<CompQuality>().FirstOrDefault();
-                quality=qualityComp==null?-1:(int)qualityComp.Quality;
-                // Component types are cheap facts, not component state or serialization.
-                components=comps==null?"":string.Join("|",comps.Select(c=>c.GetType().AssemblyQualifiedName).OrderBy(n=>n,StringComparer.Ordinal));
-            }
-            public bool Equals(CoarseKey other)=>other!=null&&type==other.type&&ReferenceEquals(definition,other.definition)&&ReferenceEquals(stuff,other.stuff)&&hitPoints==other.hitPoints&&quality==other.quality&&components==other.components;
+            private readonly ThingDef definition,stuff;
+            internal CoarseKey(Thing thing){definition=thing.def;stuff=thing.Stuff;}
+            public bool Equals(CoarseKey other)=>other!=null&&ReferenceEquals(definition,other.definition)&&ReferenceEquals(stuff,other.stuff);
             public override bool Equals(object other)=>Equals(other as CoarseKey);
-            public override int GetHashCode()
-            {unchecked {int hash=type.GetHashCode();hash=hash*31+(definition?.GetHashCode()??0);hash=hash*31+(stuff?.GetHashCode()??0);hash=hash*31+hitPoints;hash=hash*31+quality;return hash*31+components.GetHashCode();}}
+            public override int GetHashCode(){unchecked{return (definition?.GetHashCode()??0)*31+(stuff?.GetHashCode()??0);}}
+        }
+        private static bool GameCanGroup(Thing a,Thing b,Func<Thing,Thing,bool> canStack=null)
+        {
+            // CanStackWith alone does not enforce stackLimit (weapons can have
+            // matching quality but still have a capacity of one).
+            if(a.def.stackLimit<=1 || b.def.stackLimit<=1)return false;
+            return canStack==null?a.CanStackWith(b)&&b.CanStackWith(a):canStack(a,b)&&canStack(b,a);
         }
         private sealed class ExactGroup
         {
@@ -191,8 +194,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 {
                     yield return null;
                     if(thing==null||thing.Destroyed||thing.def==null||thing.stackCount<1)continue;
-                    if(!IsKnownPerUnitStack(thing))
-                    {yield return new PhysicalGroup(new[]{thing},"Phinix_legacyRedpacket_singleStackOnly");continue;}
+                    if(thing.def.stackLimit<=1){yield return new PhysicalGroup(new[]{thing},null);continue;}
                     var key=new CoarseKey(thing);
                     if(!buckets.TryGetValue(key,out var bucket))buckets[key]=bucket=new List<Thing>();
                     bucket.Add(thing);
@@ -230,15 +232,44 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     if(!index.TryGetValue(key,out var candidates))index[key]=candidates=new List<ExactGroup>();
                     ExactGroup group=null;
                     foreach(var candidate in candidates)
-                        if(string.Equals(candidate.State,state,StringComparison.Ordinal)&&thing.CanStackWith(candidate.Things[0])&&candidate.Things[0].CanStackWith(thing))
-                        {group=candidate;break;}
+                    {
+                        if(!string.Equals(candidate.State,state,StringComparison.Ordinal))continue;
+                        bool allowed=true;
+                        foreach(var source in candidate.Things)
+                        {yield return null;if(!GameCanGroup(thing,source)){allowed=false;break;}}
+                        if(allowed){group=candidate;break;}
+                    }
                     if(group==null){group=new ExactGroup{State=state};candidates.Add(group);}
                     group.Things.Add(thing);
                     yield return null;
                 }
-                foreach(var candidates in index.Values)
-                    foreach(var group in candidates)
-                        yield return new PhysicalGroup(group.Things,index.Count>1||candidates.Count>1?"Phinix_legacyRedpacket_stateGroup":null);
+                var compatible=new List<List<ExactGroup>>();
+                foreach(var stateGroup in index.Values.SelectMany(groups=>groups))
+                {
+                    List<ExactGroup> destination=null;
+                    foreach(var groups in compatible)
+                    {
+                        bool allowed=true;
+                        foreach(var prior in groups)
+                        {
+                            foreach(var a in prior.Things)
+                            {
+                                foreach(var b in stateGroup.Things)
+                                {yield return null;if(!GameCanGroup(a,b)){allowed=false;break;}}
+                                if(!allowed)break;
+                            }
+                            if(!allowed)break;
+                        }
+                        if(allowed){destination=groups;break;}
+                    }
+                    if(destination==null){destination=new List<ExactGroup>();compatible.Add(destination);}
+                    destination.Add(stateGroup);
+                }
+                foreach(var groups in compatible)
+                {
+                    var ordered=groups.OrderByDescending(g=>g.Things.Sum(t=>(long)t.stackCount));
+                    yield return new PhysicalGroup(ordered.SelectMany(g=>g.Things),groups.Count>1?"Phinix_legacyRedpacket_dominantTemplate":null);
+                }
             }
             if(failures>0)log?.Invoke("[RedPacket] Stack inspection limited failures="+failures+" reason="+firstFailure+"; affected stacks remain individually selectable.",LogLevel.WARNING);
         }
@@ -266,7 +297,19 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return comps == null || comps.All(comp => comp != null &&
                 (comp.GetType() == typeof(CompForbiddable) || comp.GetType() == typeof(CompQuality) ||
                  comp.GetType() == typeof(CompColorable) || comp.GetType() == typeof(CompRottable) ||
-                 comp.GetType() == typeof(CompIngredients) || IsStatelessComponent(comp)));
+                 comp.GetType() == typeof(CompIngredients) || IsUnusedEquippable(comp) || IsStatelessComponent(comp)));
+        }
+
+        // Base resource items such as WoodLog have CompEquippable. Its lazy
+        // verb tracker is not transferable per-unit combat state until verbs
+        // have been initialized. Never call AllVerbs here: that mutates it.
+        // Verified in both game DLLs; absent/changed private storage fails closed.
+        private static readonly FieldInfo equippableVerbs = typeof(VerbTracker).GetField("verbs", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static bool IsUnusedEquippable(object component)
+        {
+            if(component.GetType()!=typeof(CompEquippable) || equippableVerbs==null)return false;
+            var tracker=((CompEquippable)component).VerbTracker;
+            return tracker!=null && equippableVerbs.GetValue(tracker)==null;
         }
 
         private static readonly Dictionary<Type, bool> statelessComponents = new Dictionary<Type, bool>();

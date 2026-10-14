@@ -3,7 +3,7 @@
   "locale": "en-US",
   "display": {
     "name": "Red packets",
-    "summary": "Send and claim legacy red packets through Phinix inventory.",
+    "summary": "Send and claim legacy red packets through Phinix inventory. Before updating this plugin, update the Phinix Rework main mod on Steam to version 0.10.1 or later. Wait for the download to finish, then restart the game.",
     "changelog": "1.2.0: Redesigned packet pages, grouped item selection, improved claim-result checks and large-list handling."
   },
   "strings": {
@@ -117,6 +117,7 @@
     "Phinix_legacyRedpacket_uiDetailSnapshotNote": "Reopen to see the latest records.",
     "Phinix_legacyRedpacket_uiClaims": "Claim records",
     "Phinix_legacyRedpacket_uiSpecialRisk": "Packets containing this item expire after one minute. Remaining items may be confiscated, trigger a raid or be returned.",
-    "Phinix_legacyRedpacket_uiItemsGrouping": "Grouping items, please wait…"
+    "Phinix_legacyRedpacket_uiItemsGrouping": "Grouping items, please wait…",
+    "Phinix_legacyRedpacket_dominantTemplate": "Uses the most numerous state when supplementing"
   }
 }

@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "display": {
     "name": "红包",
-    "summary": "通过 Phinix 物品库存发送和领取旧协议红包。",
+    "summary": "通过 Phinix 物品库存发送和领取旧协议红包。 更新本插件前，请先在 Steam 更新 Phinix Rework 主模组（0.10.1 或更新版本），确认下载完成后重启游戏。",
     "changelog": "1.2.0：重做红包页面；支持同类物品合并选择，改善领取结果核对和大列表处理。"
   },
   "strings": {
@@ -117,6 +117,7 @@
     "Phinix_legacyRedpacket_uiDetailSnapshotNote": "重新打开可查看最新记录。",
     "Phinix_legacyRedpacket_uiClaims": "领取记录",
     "Phinix_legacyRedpacket_uiSpecialRisk": "此物品的红包有效期为 1 分钟。剩余物品可能被没收、引发袭击或返还。",
-    "Phinix_legacyRedpacket_uiItemsGrouping": "正在整理物品，请稍候…"
+    "Phinix_legacyRedpacket_uiItemsGrouping": "正在整理物品，请稍候…",
+    "Phinix_legacyRedpacket_dominantTemplate": "补齐数量时按数量最多的状态发送"
   }
 }

@@ -1,6 +1,7 @@
 """Publish a reserved draft only after its verified ZIP and build summary are attached."""
 import json,os,subprocess
 from pathlib import Path
+from build import validate_config,verify
 config=json.loads(Path('ci/config.json').read_text());release=json.loads(Path('.ci-release.json').read_text());summary=json.loads(Path('dist/build-summary.json').read_text())
 if os.environ.get('GITHUB_REF')!='refs/heads/main' or os.environ.get('GITHUB_EVENT_NAME')!='push' or os.environ.get('GITHUB_REPOSITORY')!=config['repository'] or summary['sourceCommit']!=os.environ['GITHUB_SHA'] or summary['version']!=release['tag_name'][1:]:
     raise SystemExit('Release provenance does not match this main push.')
@@ -10,6 +11,10 @@ import hashlib
 asset_path=Path('dist')/summary['asset']
 if asset_path.name != summary['asset'] or hashlib.sha256(asset_path.read_bytes()).hexdigest() != summary['sha256'] or asset_path.stat().st_size != summary['sizeBytes']:
     raise SystemExit('Verified plugin asset changed before publication.')
+validate_config(config)
+verify(asset_path,summary['version'])
+if summary.get('schemaVersion')!=2 or summary.get('games')!=config['games'] or summary.get('clientApi')!=config['clientApi'] or summary.get('referenceDigests')!={key:config[key]['sha256'] for key in ['references','references17']}:
+    raise SystemExit('Dual-runtime build provenance mismatch.')
 # Reuse identical partially uploaded assets; never replace bytes in a reserved version.
 import hashlib,tempfile
 assets=json.loads(subprocess.check_output(['gh','api',f"repos/{config['repository']}/releases/{release['id']}/assets"],text=True))

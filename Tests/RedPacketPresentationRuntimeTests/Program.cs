@@ -15,7 +15,7 @@ internal static class Program
             Check(assembly.GetTypes().Length>20,"Candidate types load against the selected host");
             if(args.Length>0&&args[0]=="--previous")
             {
-                Check(typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.IClientPresentationService")==null,"Probe uses actual 1.9 SDK, not current SDK");
+                Check((string)typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.ClientAbstractionsCompatibility",true).GetField("Version").GetRawConstantValue()=="1.9.0","Probe uses actual 1.9 SDK, not current SDK");
                 var tab=FormatterServices.GetUninitializedObject(assembly.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketTab",true));
                 var adapter=assembly.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketPresentationAdapter",true);
                 object wrapped=adapter.GetMethod("Wrap",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new[]{tab});

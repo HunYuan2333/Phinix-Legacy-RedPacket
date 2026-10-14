@@ -17,16 +17,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
         internal static IMainTabProvider Wrap(RedPacketTab tab)
         {
             Type wrapper=typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.ClientPresentationMainTab",false);
-            if(wrapper==null){if(typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.IClientPresentationService",false)!=null)throw new InvalidOperationException("CurrentPresentationProviderAdapterMissing");return tab;}
+            if(wrapper==null){if(typeof(IClientPresentationService).Assembly.GetType("PhinixClient.Framework.IClientPresentationService",false)!=null)throw new InvalidOperationException("CurrentPresentationProviderAdapterMissing");return tab;}
             return (IMainTabProvider)Activator.CreateInstance(wrapper,new object[]{tab,(Action)tab.ViewOpened,(Action)tab.ViewUpdate,(Action)tab.ViewClosed,"redpackets"});
         }
         internal static RedPacketHostPresentation Create(ExtensionHostContext host,IPhinixExtensionModule owner)
         {
-            var sdk=typeof(IClientSessionContext).Assembly;
+            var sdk=typeof(IClientPresentationService).Assembly;
             Type renderer=sdk.GetType("PhinixClient.Framework.IClientPresentationService",false);
             if(renderer==null)
             {
-                string version=(string)sdk.GetType("PhinixClient.Framework.ClientAbstractionsCompatibility",true).GetField("Version").GetRawConstantValue();
+                string version=(string)typeof(IClientSessionContext).Assembly.GetType("PhinixClient.Framework.ClientAbstractionsCompatibility",true).GetField("Version").GetRawConstantValue();
                 if(new Version(version).Major>=2)throw new InvalidOperationException("CurrentPresentationApiMissing");
                 return null;
             }
@@ -57,7 +57,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly Assembly sdk;
         private readonly IPhinixExtensionModule owner;
         private readonly object renderer,points,scope,point,theme;
-        private readonly Type scopeType,sessionType,pointType;
+        private readonly Type scopeType,sessionType,pointType,boundsType;
+        private readonly MethodInfo draw;
         internal readonly Dictionary<string,Func<RedPacketPresentationActionContext,IEnumerable<HostAction>>> Sources=new Dictionary<string,Func<RedPacketPresentationActionContext,IEnumerable<HostAction>>>();
         private bool disposed;
         internal string OwnerId=>owner.ExtensionId;
@@ -68,6 +69,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
             this.owner=owner;this.sdk=sdk;
             renderer=Resolve(host,Type("IClientPresentationService"));points=Resolve(host,Type("IClientExtensionPointService"));theme=Resolve(host,Type("IClientTheme"));
             scopeType=Type("IClientExtensionPointScope");sessionType=Type("IClientPresentationSession");pointType=Type("IClientActionPoint`1").MakeGenericType(typeof(RedPacketPresentationActionContext));
+            boundsType=Type("ClientPresentationBounds");
+            draw=sessionType.GetMethod("Draw",new[]{boundsType});
+            if(draw==null || boundsType.GetConstructor(new[]{typeof(float),typeof(float),typeof(float),typeof(float)})==null)
+                throw new InvalidOperationException("The selected Host lacks the current presentation bounds contract.");
             scope=Call(Type("IClientExtensionPointService").GetMethod("ForModule"),points,owner);
             try
             {
@@ -96,7 +101,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         internal object Open(string pageId)=>Call(Type("IClientPresentationService").GetMethod("Open"),renderer,owner,pageId);
         internal bool Closed(object view)=>view==null||(bool)Get(view,"IsClosed");
         internal object LastResult(object view)=>Get(view,"LastActionResult");
-        internal void Draw(object view,Rect rect)=>Call(sessionType.GetMethod("Draw"),view,rect);
+        internal void Draw(object view,Rect rect)=>Call(draw,view,
+            Activator.CreateInstance(boundsType,rect.x,rect.y,rect.width,rect.height));
         internal bool Input(object view,out HostInput input)
         {
             object[] args={null};bool read=(bool)Call(sessionType.GetMethod("TryDequeueInput"),view,args);
@@ -123,19 +129,20 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             catch {(owned as IDisposable)?.Dispose();throw;}
         }
-        internal object Field(string id,string label,string value,bool integer=false,string error=null,string disabled=null)
+        internal object Field(string id,string label,string value,bool integer=false,string error=null,string disabled=null,string placeholder=null)
         {
             if(integer)return Call(Type("ClientPresentationTextField").GetMethod("Integer"),null,id,label,value,error,disabled);
-            return New("ClientPresentationTextField",new Dictionary<string,object>{{"id",id},{"label",label},{"value",value},{"maxLength",256},{"validationText",error},{"disabledReason",disabled}});
+            return New("ClientPresentationTextField",new Dictionary<string,object>{{"id",id},{"label",label},{"value",value},{"maxLength",256},{"placeholder",placeholder},{"validationText",error},{"disabledReason",disabled}});
         }
-        internal object List(string id,IEnumerable<HostRow> rows,string empty,string selected=null,bool readOnly=false)
+        internal object List(string id,IEnumerable<HostRow> rows,string empty,string selected=null,bool readOnly=false,bool compact=false)
         {
             var models=rows.Select(r=>
             {
                 object row=New("ClientPresentationRow",new Dictionary<string,object>{{"id",r.Id},{"label",r.Label},{"detail",r.Detail},{"disabledReason",r.Disabled},{"colorKey",r.Color}});
+                if(r.Icon!=null)row=Call(row.GetType().GetMethod("WithImage"),row,Call(Type("ClientTextureImage").GetMethod("FromTexture"),null,r.Icon));
                 if(r.Badge!=null)
                 {
-                    object badge=New("ClientPresentationBadge",new Dictionary<string,object>{{"id","source"},{"label",r.Badge},{"icon",r.Icon}});
+                    object badge=New("ClientPresentationBadge",new Dictionary<string,object>{{"id","source"},{"label",r.Badge},{"image",null}});
                     if(r.BadgeColor!=null)badge=Call(badge.GetType().GetMethod("WithColor"),badge,r.BadgeColor);
                     row=Call(row.GetType().GetMethod("WithBadges"),row,ArrayOf("ClientPresentationBadge",new[]{badge}));
                 }
@@ -143,6 +150,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             });
             object list=New("ClientPresentationList",new Dictionary<string,object>{{"id",id},{"rows",ArrayOf("ClientPresentationRow",models)},{"emptyText",empty},{"selectedId",selected}});
             list=Call(list.GetType().GetMethod("WithColors"),list,"redpacket.highlight","redpacket.accent");
+            if(compact)list=Call(list.GetType().GetMethod("WithCompactRows"),list);
             return readOnly?Call(list.GetType().GetMethod("WithReadOnly"),list):list;
         }
         internal object Section(string id,string title,string summary,IEnumerable<HostBinding> actions=null,IEnumerable<object> fields=null,object list=null,string status=null,string tone="Neutral",bool plain=true,string surfaceKey=null)
@@ -152,6 +160,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if(plain)section=Call(section.GetType().GetMethod("WithPlainLayout"),section);
             return Call(section.GetType().GetMethod("WithWrappedActions"),section);
         }
+        internal object InlineToolbar(object section)=>Call(section.GetType().GetMethod("WithInlineToolbar"),section);
         internal object FieldColumns(object section)=>Call(section.GetType().GetMethod("WithFieldColumns"),section,2,180f);
         internal void Publish(object view,string id,string title,long revision,IEnumerable<object> sections,HostBatch batch,Func<bool> current,int primarySections=0,string primaryTitle=null,string secondaryTitle=null,int primaryFooterSections=0)
         {
@@ -166,7 +175,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Call(sessionType.GetMethod("Publish"),view,page,batch?.Owned,current);
             if(batch!=null)batch.Owned=null; // successful transfer only
         }
-        private Type Type(string name)=>sdk.GetType("PhinixClient.Framework."+name,true);
+        private Type Type(string name)=>(name == "ClientTextureImage" || name == "ClientWidgets" ? typeof(IClientSessionContext).Assembly : sdk).GetType("PhinixClient.Framework."+name,true);
         private object New(string name,Dictionary<string,object> supplied)
         {
             var constructor=Type(name).GetConstructors().FirstOrDefault(c=>supplied.Keys.All(k=>c.GetParameters().Any(p=>p.Name==k))&&c.GetParameters().All(p=>supplied.ContainsKey(p.Name)||p.IsOptional));

@@ -159,14 +159,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             var items=tab.PresentationItems.Skip(itemPage*100).Take(100).Select((item,index)=>
             {
                 string id="item."+itemEpoch+"."+(itemPage*100+index);itemRows[id]=item;if(ReferenceEquals(item,selectedItem))selectedItemRow=id;
-                return new HostRow(id,Safe(item.Label),L("uiAvailableCount",item.Count)){Badge=L(item.IsInventory?"inventorySource":"uiMapSource"),BadgeColor=item.IsInventory?"ui.accent":"ui.text.secondary",Icon=item.ThingDef?.uiIcon};
+                return new HostRow(id,Safe(item.Label),L("uiAvailableCount",item.Count)+" · "+L(item.IsInventory?"inventorySource":"uiMapSource")){Icon=item.ThingDef?.uiIcon};
             }).ToArray();
             var packetModels=packets.Skip(packetPage*100).Take(100).Select(packet=>
             {
                 string id=RowId(packet.Id);packetRows[id]=packet.Id;
-                string label=packet.Template==null?L("uiUnknownItem"):DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName)?.label??packet.Template.DefName;
-                return new HostRow(id,Safe(packet.SenderDisplayName)+" · "+Safe(label),L("uiPacketRemaining",packet.RemainingCount,packet.TotalCount,packet.RemainingPackets,packet.TotalPackets)+"\n"+packet.CreatedAtUtc.ToLocalTime().ToString("HH:mm",CultureInfo.InvariantCulture))
-                    {Badge=Status(packet),BadgeColor=state.IsPendingClaim(packet.Id)||packet.StateRequired&&!packet.StateReady?"ui.warning":packet.HasClaimed(tab.PresentationUuid)?"ui.success":packet.Expired||packet.ExpiresAtUtc<=DateTime.UtcNow||packet.RemainingCount<=0||packet.RemainingPackets<=0||RedPacketStateMachine.IsUnknownTemplate(packet.Template)||RedPacketStateMachine.IsMinifiedTemplate(packet.Template)?"ui.text.secondary":"ui.accent"};
+                var localDef=string.IsNullOrEmpty(packet.Template?.DefName)?null:DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName);
+                string label=packet.Template==null?L("uiUnknownItem"):localDef?.label??packet.Template.DefName;
+                var icon=(localDef??DefDatabase<ThingDef>.GetNamedSilentFail("UnknownItem"))?.uiIcon??BaseContent.BadTex;
+                return new HostRow(id,Safe(packet.SenderDisplayName)+" · "+Safe(label),L("uiPacketRemaining",packet.RemainingCount,packet.TotalCount,packet.RemainingPackets,packet.TotalPackets)+" · "+Status(packet)+" · "+packet.CreatedAtUtc.ToLocalTime().ToString("HH:mm",CultureInfo.InvariantCulture))
+                    {Icon=icon,Color=state.IsPendingClaim(packet.Id)||packet.StateRequired&&!packet.StateReady?"ui.warning":packet.HasClaimed(tab.PresentationUuid)?"ui.success":packet.Expired||packet.ExpiresAtUtc<=DateTime.UtcNow||packet.RemainingCount<=0||packet.RemainingPackets<=0||RedPacketStateMachine.IsUnknownTemplate(packet.Template)||RedPacketStateMachine.IsMinifiedTemplate(packet.Template)?"ui.text.secondary":"ui.accent"};
             }).ToArray();
             long ticket=++revision,tv=host.ThemeVersion,pv=host.PointVersion;int bv=state.BadgeVersion,pc=state.PendingInventorySendCount;
             object lang=RedPacketLocalization.LanguageToken;Game expectedGame=Current.Game;string uuid=tab.PresentationUuid;bool online=tab.PresentationOnline;var expectedItem=selectedItem;int available=selectedItem?.Count??0;
@@ -178,14 +180,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             {
                 Func<HostBinding,bool> own=a=>a.OwnerId==host.OwnerId;
                 var sections=new List<object>{
-                    host.Section("browse",L("sendTitle"),L("uiPage",itemPage+1,itemPages),batch.Bindings.Where(a=>own(a)&&(a.LocalId=="refresh"||a.LocalId.StartsWith("items."))),new[]{host.Field("search",L("searchLabel"),search)}),
-                    host.FieldColumns(host.Section("draft",selectedItem==null?L("uiChooseItem"):Safe(selectedItem.Label),"",batch.Bindings.Where(a=>own(a)&&new[]{"normal","lucky","all","half","none","send"}.Contains(a.LocalId)),new[]{host.Field("quantity",L("uiQuantity"),quantity,true,selectedItem!=null&&!RedPacketPresentationRules.Quantity(quantity,available,out _)?L("uiQuantityInvalid",available):null,selectedItem==null?L("uiChooseItem"):null),host.Field("packet-count",L("packetCountLabel"),packetCount,true,(selectedItem?.Selected??0)>0&&!RedPacketPresentationRules.Packets(packetCount,selectedItem.Selected,out _)?L("uiPacketCountInvalid",Math.Min(selectedItem.Selected,RedPacketLimits.MaxClaimDetailsPerPacket)):null,selectedItem==null?L("uiChooseItem"):null)},status:notice+(pc>0?"\n"+L("inventorySendPending",pc):""),tone:pc>0?"Pending":"Neutral",plain:true,surfaceKey:"redpacket.panel")),
-                    host.Section("available","","",list:host.List("items",items,L(tab.PresentationItemsLoading?"uiItemsGrouping":"uiNoItems"),selectedItemRow)),
-                    host.Section("packet-tools",L("listTitle"),picked==null?L("uiChoosePacket"):Safe(picked.SenderDisplayName)+" · "+Status(picked),batch.Bindings.Where(a=>!own(a)||new[]{"claim","detail","settings"}.Contains(a.LocalId)||a.LocalId.StartsWith("packets.")),status:claimNotice),
-                    host.Section("received","",L("uiClaimAuthorityNote"),list:host.List("packets",packetModels,L("uiNoPackets"),picked==null?null:RowId(picked.Id)))
+                    host.InlineToolbar(host.Section("browse","",itemPages>1?L("uiPage",itemPage+1,itemPages):"",batch.Bindings.Where(a=>own(a)&&(a.LocalId=="refresh"||a.LocalId.StartsWith("items."))),new[]{host.Field("search","",search,placeholder:L("searchLabel"))})),
+                    host.FieldColumns(host.Section("draft","","",batch.Bindings.Where(a=>own(a)&&new[]{"normal","lucky","all","half","none","send"}.Contains(a.LocalId)),new[]{host.Field("quantity",L("uiQuantity"),quantity,true,selectedItem!=null&&!RedPacketPresentationRules.Quantity(quantity,available,out _)?L("uiQuantityInvalid",available):null,selectedItem==null?L("uiChooseItem"):null),host.Field("packet-count",L("packetCountLabel"),packetCount,true,(selectedItem?.Selected??0)>0&&!RedPacketPresentationRules.Packets(packetCount,selectedItem.Selected,out _)?L("uiPacketCountInvalid",Math.Min(selectedItem.Selected,RedPacketLimits.MaxClaimDetailsPerPacket)):null,selectedItem==null?L("uiChooseItem"):null)},status:notice+(pc>0?"\n"+L("inventorySendPending",pc):""),tone:pc>0?"Pending":"Neutral",plain:true,surfaceKey:"redpacket.panel")),
+                    host.Section("available","","",list:host.List("items",items,L(tab.PresentationItemsLoading?"uiItemsGrouping":"uiNoItems"),selectedItemRow,compact:true)),
+                    host.InlineToolbar(host.Section("packet-tools",L("listTitle"),"",batch.Bindings.Where(a=>!own(a)||new[]{"claim","detail","settings"}.Contains(a.LocalId)||a.LocalId.StartsWith("packets.")),status:claimNotice)),
+                    host.Section("received","",L("uiClaimAuthorityNote"),list:host.List("packets",packetModels,L("uiNoPackets"),picked==null?null:RowId(picked.Id),compact:true))
                 };
                 var draft=sections[1];sections.RemoveAt(1);sections.Insert(2,draft);
-                dirty=false;try {host.Publish(view,MainId,L("tab"),ticket,sections,batch,current,3,L("sendTitle"),L("listTitle"),1);}catch{dirty=true;throw;}
+                dirty=false;try {host.Publish(view,MainId,"",ticket,sections,batch,current,3,L("sendTitle"),L("listTitle"),1);}catch{dirty=true;throw;}
             }
             shownTimeState=timeState;second=tick;badgeVersion=bv;sendCount=pc;themeVersion=tv;pointVersion=pv;language=lang;game=expectedGame;shownUuid=uuid;shownOnline=online;shownPacketState=pickedState;result=host.LastResult(view);
         }

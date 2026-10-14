@@ -1,14 +1,17 @@
-name: Plugin main release
+name: Plugin main dual-runtime release
 on:
   push:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: plugin-release-${{ github.repository }}
+  cancel-in-progress: false
 jobs:
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository == 'HunYuan2333/Phinix-Legacy-RedPacket'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
@@ -19,29 +22,21 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
-      - name: Reserve immutable version for this main commit
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 ci/release.py
+      - name: Check complete dual-runtime release configuration
+        run: python3 ci/build.py --check-config
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        if: steps.release.outputs.published != 'true'
         with:
           dotnet-version: '10.0.x'
-      - name: RedPacket repair regression checks
-        if: steps.release.outputs.published != 'true'
-        run: dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release
-      - name: Source checks
-        if: steps.release.outputs.published != 'true'
+      - name: Source and publication regression checks
         run: |
           if [ -f check-source.py ]; then python3 check-source.py; fi
           python3 -m unittest discover -s ci/tests -v
-      - name: Read fixed host commit
+      - name: RedPacket repair regression checks
+        run: dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release
+      - name: Read fixed Host commit
         id: host
-        if: steps.release.outputs.published != 'true'
         run: python3 -c 'import json, os; c=json.load(open("ci/config.json")); open(os.environ["GITHUB_OUTPUT"], "a").write("commit=" + c["hostCommit"] + "\n")'
-      - name: Checkout fixed host and nested source pins
-        if: steps.release.outputs.published != 'true'
+      - name: Checkout fixed Host and nested source pins
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: HunYuan2333/Phinix-Rework
@@ -49,18 +44,24 @@ jobs:
           submodules: recursive
           persist-credentials: false
           path: .ci-host
-      - name: Fetch private compile references
-        if: steps.release.outputs.published != 'true'
+      - name: Check fixed Host API3 and dual build capabilities
+        run: python3 ci/build.py --host .ci-host --check-host
+      - name: Fetch pinned private compile references for both games
         env:
           GH_TOKEN: ${{ secrets.BUILD_REFERENCES_TOKEN }}
         run: |
           test -n "$GH_TOKEN" || { echo '::error::Configure BUILD_REFERENCES_TOKEN with Contents:Read on the private reference repository.'; exit 1; }
-          gh release download refs-rw16-v3 --repo HunYuan2333/Phinix-Rework-Build-References --pattern references-rw16-v3.zip --dir "$RUNNER_TEMP/phinix-references"
-      - name: Build and verify plugin ZIP
+          python3 ci/fetch_references.py --output "$RUNNER_TEMP/phinix-references"
+      - name: Reserve immutable version for this main commit
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/release.py
+      - name: Build, bind and verify one dual-runtime plugin ZIP
         if: steps.release.outputs.published != 'true'
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: python3 ci/build.py --host .ci-host --references "$RUNNER_TEMP/phinix-references/references-rw16-v3.zip" --version "$RELEASE_VERSION" --output dist
+        run: python3 ci/build.py --host .ci-host --references "$RUNNER_TEMP/phinix-references/references16.zip" --references17 "$RUNNER_TEMP/phinix-references/references17.zip" --version "$RELEASE_VERSION" --output dist
       - name: Save verified artifacts
         if: steps.release.outputs.published != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

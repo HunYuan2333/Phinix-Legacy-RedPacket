@@ -74,6 +74,10 @@
       <HintPath>$(GameReferences)/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="InventoryExtension.GameAdapter">
+      <HintPath>$(PhinixPackage)/Common/Extensions/InventoryExtension.GameAdapter.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="InventoryExtension">
       <HintPath>$(PhinixPackage)/Common/Extensions/10-InventoryExtension.dll</HintPath>
       <Private>false</Private>
@@ -89,6 +93,7 @@
       <HintPath>$(PhinixPackage)/Common/Extensions/12-TradeExtension.Client.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="ClientPresentation.Contracts"><HintPath>$(PhinixPackage)/Common/Assemblies/09-ClientPresentation.Contracts.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="ClientExtensionAbstractions">
       <HintPath>$(PhinixPackage)/Common/Assemblies/10-ClientExtensionAbstractions.dll</HintPath>
       <Private>false</Private>
@@ -102,4 +107,8 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+  <Target Name="RequireInventoryGameAdapter" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(PhinixPackage)/Common/Extensions/InventoryExtension.GameAdapter.dll')"
+           Text="The selected Phinix package lacks InventoryExtension.GameAdapter.dll. Build this migration with the matching full client package." />
+  </Target>
 </Project>
