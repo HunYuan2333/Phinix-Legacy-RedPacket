@@ -68,3 +68,9 @@ class CloudRestoreTests(unittest.TestCase):
     def test_ci_uses_explicit_cloud_restore(self):
         source=(Path(__file__).parents[1]/'build.py').read_text()
         self.assertIn("'--online-restore'",source)
+
+class CloudOutputTests(unittest.TestCase):
+    def test_build_uses_isolated_output_before_copying_verified_zip(self):
+        source=(Path(__file__).parents[1]/'build.py').read_text()
+        self.assertIn("'--output',str(isolated_output)",source)
+        self.assertLess(source.index('verify(isolated_output,a.version)'),source.index('shutil.copyfile(isolated_output,output)'))

@@ -1,5 +1,5 @@
 """Build one immutable API3 dual-runtime plugin against a fixed Host and private references."""
-import argparse,hashlib,json,re,subprocess,zipfile
+import argparse,hashlib,json,re,subprocess,zipfile,shutil,tempfile
 from pathlib import Path
 
 def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -75,7 +75,13 @@ def main():
     if not all([a.references,a.references17,a.version,a.output]):p.error('Both private references, --version and --output are required.')
     provision(a.references,host,config['references']['sha256']);provision(a.references17,host,config['references17']['sha256'],'1.7')
     a.output.mkdir(parents=True,exist_ok=True);output=a.output/(config['assetPrefix']+'-'+a.version+'.zip')
-    subprocess.run(['python3',str(host/'tools/compatibility/build-managed-dual.py'),'--online-restore','--host',str(host),'--plugin',str(Path.cwd()),'--game16',str(host/'GameDlls'),'--game17',str(host/'GameDlls17'),'--harmony17',str(host/'GameDlls17/0Harmony.dll'),'--version',a.version,'--output',str(output)],check=True)
+    if output.exists():raise ValueError('Preserve existing release output.')
+    # The packager deliberately rejects output inside a source checkout.
+    with tempfile.TemporaryDirectory(prefix='phinix-ci-package-') as folder:
+        isolated_output=Path(folder)/output.name
+        subprocess.run(['python3',str(host/'tools/compatibility/build-managed-dual.py'),'--online-restore','--host',str(host),'--plugin',str(Path.cwd()),'--game16',str(host/'GameDlls'),'--game17',str(host/'GameDlls17'),'--harmony17',str(host/'GameDlls17/0Harmony.dll'),'--version',a.version,'--output',str(isolated_output)],check=True)
+        verify(isolated_output,a.version)
+        shutil.copyfile(isolated_output,output)
     verify(output,a.version)
     summary=dict(schemaVersion=2,repository=config['repository'],sourceCommit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),hostCommit=config['hostCommit'],commonCommit=subprocess.check_output(['git','-C',str(host/'Dependencies/Phinix.Common'),'rev-parse','HEAD'],text=True).strip(),version=a.version,asset=output.name,sizeBytes=output.stat().st_size,sha256=sha(output),games=config['games'],clientApi=config['clientApi'],referenceDigests={key:config[key]['sha256'] for key in ['references','references17']})
     # Product identity comes from both checked variants, never from a workflow override.
