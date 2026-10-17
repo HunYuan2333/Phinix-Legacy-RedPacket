@@ -9,5 +9,6 @@
   "moduleId": "builtin.legacy-redpacket",
   "status": "candidate-not-admitted",
   "legacyClientKeyPreserved": true,
-  "sourceVisibility": "public"
+  "sourceVisibility": "public",
+  "minimumHostVersion": "0.10.5"
 }

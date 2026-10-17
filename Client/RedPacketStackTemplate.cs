@@ -56,40 +56,39 @@ namespace Phinix.LegacyRedPacketExtension.Client
         // Inspect intact sources before RimWorld SplitOff creates a new entity with
         // its own reveal/placement history. Do not erase transferable fields to make it match.
         internal static PhysicalSelection PreparePhysical(StackedThings stack, int count,
-            Func<Thing, TradeItemSnapshot> serialize = null, Func<Thing, Thing, bool> canStack = null)
+            Func<Thing, TradeItemSnapshot> serialize = null, Func<Thing, Thing, bool> canStack = null,
+            Func<int, int> chooseIndex = null)
         {
             serialize = serialize ?? TradeItemConverter.ConvertThingFromVerse;
-            if (stack == null || count < 1 || stack.Things == null || stack.Things.Count == 0 || stack.Things.Count > MaxStacks ||
+            if (stack == null || count < 1 || stack.Things == null || stack.Things.Count == 0 ||
                 stack.Things.Any(t => t == null || t.Destroyed || t.stackCount < 1) ||
                 stack.Things.Distinct().Count() != stack.Things.Count)
                 throw Incompatible("SelectionChanged");
-            // One packet keeps the existing wire template. Choose the complete
-            // state represented by most units, then exhaust that state before
-            // supplementing from other compatible sources. Never absorb Things.
-            var states=new List<ExactGroup>();
-            var coarse=new CoarseKey(stack.Things[0]);
-            canStack=canStack??((a,b)=>a.CanStackWith(b));
-            foreach(var thing in stack.Things)
+            // User policy: pick sources automatically, and use one randomly selected
+            // source's complete state for the whole packet. Never mutate unselected Things.
+            var candidates = stack.Things.ToList();
+            if (chooseIndex == null) chooseIndex = NextSourceIndex;
+            for (int i = candidates.Count - 1; i > 0; i--)
             {
-                if(!coarse.Equals(new CoarseKey(thing)) || (!ReferenceEquals(thing,stack.Things[0]) && !GameCanGroup(stack.Things[0],thing,canStack)))throw Incompatible("StackabilityDifferent");
-                var snapshot=serialize(thing);
-                if(snapshot==null || snapshot.StackCount!=thing.stackCount)throw Incompatible("SnapshotInvalid");
-                string state=ComparableState(snapshot);
-                var group=states.FirstOrDefault(g=>g.State==state);
-                if(group==null){group=new ExactGroup{State=state};states.Add(group);}
-                group.Things.Add(thing);
+                int index = chooseIndex(i + 1);
+                if (index < 0 || index > i) throw Incompatible("SelectionChanged");
+                Thing temporary = candidates[i]; candidates[i] = candidates[index]; candidates[index] = temporary;
             }
-            var ordered=states.OrderByDescending(g=>g.Things.Sum(t=>(long)t.stackCount)).ToArray();
-            var sources=new List<Thing>();long available=0;
-            foreach(var thing in ordered.SelectMany(g=>g.Things.OrderByDescending(t=>t.stackCount)))
+            var sources = new List<Thing>(); long available = 0;
+            var coarse = new CoarseKey(candidates[0]);
+            foreach (var thing in candidates)
             {
-                sources.Add(thing);available+=thing.stackCount;
-                if(available>=count)break;
+                if (!coarse.Equals(new CoarseKey(thing))) throw Incompatible("StackabilityDifferent");
+                if (candidates.Count > 1 && !CanAutomaticallyGroup(thing.def)) throw Incompatible("StackabilityDifferent");
+                if (canStack != null && sources.Any(prior => !canStack(prior, thing) || !canStack(thing, prior)))
+                    throw Incompatible("StackabilityDifferent");
+                sources.Add(thing); available += thing.stackCount;
+                if (sources.Count > MaxStacks) throw Incompatible("SourceLimit");
+                if (available >= count) break;
             }
-            if(available<count)throw Incompatible("SelectionChanged");
-            for(int i=0;i<sources.Count;i++)for(int j=0;j<i;j++)
-                if(!GameCanGroup(sources[i],sources[j],canStack))throw Incompatible("StackabilityDifferent");
-            TradeItemSnapshot template=CaptureCount(ordered[0].Things[0],count,serialize);
+            if (available < count) throw Incompatible("SelectionChanged");
+            DeliveryCounts(count, Math.Max(1, sources[0].def.stackLimit)); // Reject before any extraction.
+            TradeItemSnapshot template = CaptureCount(sources[0], count, serialize);
             XmlDocument document = ReadDocument(template);
             // An intact source may be spawned. A wire template must never claim a sender map slot.
             foreach (XmlNode node in document.DocumentElement.ChildNodes.Cast<XmlNode>().Where(n => n.Name == "map"))
@@ -109,6 +108,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 template.StuffDefName, template.InnerItem, template.StateCodecId, payload);
             return new PhysicalSelection(new StackedThings(sources) { Selected = count }, template);
         }
+
+        private static readonly Random sourceRandom = new Random();
+        private static int NextSourceIndex(int maximum) { lock (sourceRandom) return sourceRandom.Next(maximum); }
+        internal static bool CanAutomaticallyGroup(ThingDef definition) => definition != null &&
+            definition.category == ThingCategory.Item && !definition.IsWeapon && !definition.IsApparel &&
+            !definition.IsCorpse && !definition.tradeNeverStack;
 
         internal sealed class PhysicalSelection
         {
@@ -194,7 +199,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 {
                     yield return null;
                     if(thing==null||thing.Destroyed||thing.def==null||thing.stackCount<1)continue;
-                    if(thing.def.stackLimit<=1){yield return new PhysicalGroup(new[]{thing},null);continue;}
+                    // Capacity-one sources need no physical coalescing or state decoding here.
+                    // The item-choice layer groups their display independently of stackLimit.
+                    if(!CanAutomaticallyGroup(thing.def)||thing.def.stackLimit<=1){yield return new PhysicalGroup(new[]{thing},null);continue;}
                     var key=new CoarseKey(thing);
                     if(!buckets.TryGetValue(key,out var bucket))buckets[key]=bucket=new List<Thing>();
                     bucket.Add(thing);

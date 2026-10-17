@@ -44,6 +44,8 @@ internal static class CurrentProbe
     public static void Run(Assembly candidate)
     {
         CheckExpiryRevision(candidate);
+        CheckAutomaticMapChoice(candidate,"Chemfuel",750,750,1000);
+        CheckAutomaticMapChoice(candidate,"ChunkMarble",1,1,2);
         var provider=new Provider();int opens=0,updates=0,closes=0;
         var wrapper=new ClientPresentationMainTab(provider,()=>opens++,()=>updates++,()=>closes++,"packets");
         wrapper.ViewUpdate();Program.Check(updates==0,"Hidden provider receives no owner update");
@@ -130,6 +132,36 @@ internal static class CurrentProbe
     }
     private sealed class OnlineSession : IClientSessionContext
     {public bool Authenticated=>true;public bool LoggedIn=>true;public string SessionId=>"test";public string Uuid=>"viewer";}
+    private static void CheckAutomaticMapChoice(Assembly candidate,string definitionName,int stackLimit,int eachCount,int selectedCount)
+    {
+        // Real owner/selection classes and game metadata, without native Scribe or world delivery.
+        var def=(Verse.ThingDef)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Verse.ThingDef));
+        def.defName=definitionName;def.stackLimit=stackLimit;def.category=Verse.ThingCategory.Item;
+        var first=(Verse.Thing)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Verse.Thing));
+        var second=(Verse.Thing)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Verse.Thing));
+        first.thingIDNumber=101;second.thingIDNumber=102;
+        first.def=def;first.stackCount=eachCount;second.def=def;second.stackCount=eachCount;
+        Type itemType=candidate.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketAvailableItem",true);
+        var from=itemType.GetMethod("FromPhysical",BindingFlags.Public|BindingFlags.Static);
+        var one=from.Invoke(null,new object[]{new Phinix.TradeExtension.Client.StackedThings(new[]{first})});
+        var two=from.Invoke(null,new object[]{new Phinix.TradeExtension.Client.StackedThings(new[]{second})});
+        var items=Array.CreateInstance(itemType,2);items.SetValue(one,0);items.SetValue(two,1);
+        Type choiceType=candidate.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketItemChoice",true);
+        var choices=(IList)choiceType.GetMethod("Build",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{items});
+        Program.Check(choices.Count==1,"Real "+definitionName+" sources occupy one item choice");
+        var tab=System.Runtime.Serialization.FormatterServices.GetUninitializedObject(candidate.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketTab",true));
+        var list=(IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));list.Add(one);list.Add(two);
+        Set(tab,"availableItems",list);Set(tab,"filteredItems",Activator.CreateInstance(list.GetType()));
+        var selection=Call(tab,"PresentationSelectChoice",choices[0]);
+        Program.Check(selection!=null&&(int)itemType.GetProperty("Count").GetValue(selection)==2*eachCount,"The real tab binds the entire map choice instead of its first pile");
+        Call(tab,"PresentationQuantity",selection,selectedCount);
+        Program.Check((int)itemType.GetProperty("Selected").GetValue(selection)==selectedCount,"A quantity larger than a single pile reaches the send owner");
+        Program.Check((bool)Call(tab,"PresentationHasItem",selection),"A registered composite selection is accepted by freshness checks");
+        tab.GetType().GetMethod("ClearItems",BindingFlags.Instance|BindingFlags.Public).Invoke(tab,null);
+        Program.Check(!(bool)Call(tab,"PresentationHasItem",selection),"Refreshing the owner invalidates the composite selection");
+        Program.Check(first.stackCount==eachCount&&second.stackCount==eachCount,"Browsing and clearing a combined selection never extracts physical items");
+    }
+
     private static void CheckExpiryRevision(Assembly candidate)
     {
         var type=candidate.GetType("Phinix.LegacyRedPacketExtension.Client.RedPacketStateMachine",true);

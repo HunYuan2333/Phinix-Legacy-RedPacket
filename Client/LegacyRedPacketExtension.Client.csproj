@@ -25,6 +25,7 @@
     <Compile Include="RedPacketDropHelper.cs" />
     <Compile Include="RedPacketInventoryCodec.cs" />
     <Compile Include="RedPacketAvailableItem.cs" />
+    <Compile Include="RedPacketItemChoice.cs" />
     <Compile Include="RedPacketInventorySendStore.cs" />
     <Compile Include="RedPacketInventorySending.cs" />
     <Compile Include="RedPacketLimits.cs" />

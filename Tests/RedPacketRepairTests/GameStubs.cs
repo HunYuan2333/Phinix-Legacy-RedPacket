@@ -2,7 +2,8 @@
 using System;using System.Collections.Generic;using System.Linq;
 namespace Utils { public enum LogLevel { INFO, WARNING, ERROR } }
 namespace Verse {
- public class ThingDef { public string defName="Steel";public int stackLimit=75; }
+ public enum ThingCategory { Item,Building,Pawn }
+ public class ThingDef { public ThingCategory category=ThingCategory.Item; public bool IsWeapon,IsApparel,IsCorpse,tradeNeverStack; public string defName="Steel";public int stackLimit=75; }
  public class Thing { public bool Destroyed; public ThingDef Stuff;public int HitPoints=100; public int stackCount=75;public ThingDef def=new ThingDef();public string State="<beenRevealed>true</beenRevealed><tickDelta>0</tickDelta><health>100</health>";public bool StackAllowed=true;public virtual bool CanStackWith(Thing other)=>StackAllowed&&other.def.defName==def.defName; }
  public class Medicine:ThingWithComps {}
  public class FoodState:ThingComp { public float PoisonPct; }

@@ -118,6 +118,11 @@
     "Phinix_legacyRedpacket_uiClaims": "领取记录",
     "Phinix_legacyRedpacket_uiSpecialRisk": "此物品的红包有效期为 1 分钟。剩余物品可能被没收、引发袭击或返还。",
     "Phinix_legacyRedpacket_uiItemsGrouping": "正在整理物品，请稍候…",
-    "Phinix_legacyRedpacket_dominantTemplate": "补齐数量时按数量最多的状态发送"
+    "Phinix_legacyRedpacket_dominantTemplate": "补齐数量时按数量最多的状态发送",
+    "Phinix_legacyRedpacket_uiMixedSource": "地图与库存",
+    "Phinix_legacyRedpacket_uiGroupedSendPending": "已合并显示同类物品，暂不支持从此合并项发送。",
+    "Phinix_legacyRedpacket_uiGroupedInventoryPending": "这些库存记录目前需分别发送。",
+    "Phinix_legacyRedpacket_uiRandomStackState": "自动挑堆凑足数量，发送物品统一采用随机选中一堆的状态。",
+    "Phinix_legacyRedpacket_uiMixedSendScope": "本次可发地图物品 {0}；库存另行发送"
   }
 }

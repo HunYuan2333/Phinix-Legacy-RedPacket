@@ -118,6 +118,11 @@
     "Phinix_legacyRedpacket_uiClaims": "Claim records",
     "Phinix_legacyRedpacket_uiSpecialRisk": "Packets containing this item expire after one minute. Remaining items may be confiscated, trigger a raid or be returned.",
     "Phinix_legacyRedpacket_uiItemsGrouping": "Grouping items, please wait…",
-    "Phinix_legacyRedpacket_dominantTemplate": "Uses the most numerous state when supplementing"
+    "Phinix_legacyRedpacket_dominantTemplate": "Uses the most numerous state when supplementing",
+    "Phinix_legacyRedpacket_uiMixedSource": "Map and inventory",
+    "Phinix_legacyRedpacket_uiGroupedSendPending": "Items are grouped for browsing. Sending from a combined entry is not available yet.",
+    "Phinix_legacyRedpacket_uiGroupedInventoryPending": "These inventory records must currently be sent separately.",
+    "Phinix_legacyRedpacket_uiRandomStackState": "Sources are picked automatically. All sent items use the state of one randomly selected source stack.",
+    "Phinix_legacyRedpacket_uiMixedSendScope": "Map: {0} available to send; inventory counted separately"
   }
 }

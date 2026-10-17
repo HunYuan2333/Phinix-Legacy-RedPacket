@@ -33,6 +33,8 @@ jobs:
           python3 -m unittest discover -s ci/tests -v
       - name: RedPacket repair regression checks
         run: dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj --configuration Release
+      - name: RedPacket item-choice regression checks
+        run: dotnet run --project Tests/RedPacketItemChoiceTests/RedPacketItemChoiceTests.csproj --configuration Release
       - name: Read fixed Host commit
         id: host
         run: python3 -c 'import json, os; c=json.load(open("ci/config.json")); open(os.environ["GITHUB_OUTPUT"], "a").write("commit=" + c["hostCommit"] + "\n")'

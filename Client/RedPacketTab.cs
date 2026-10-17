@@ -148,12 +148,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
         internal DateTime PresentationCooldown=>nextSendAllowedUtc;
         internal bool PresentationItemsDirty=>itemsDirty||!ReferenceEquals(itemsGame,Current.Game);
         internal IList<RedPacketAvailableItem> PresentationItems=>filteredItems;
+        internal IList<RedPacketAvailableItem> PresentationAllItems=>availableItems;
         internal void PresentationRefresh(){RefreshAvailableItems();}
         internal void PresentationSearch(string text){searchText=text;UpdateFilteredItems();}
-        internal bool PresentationHasItem(RedPacketAvailableItem item)=>availableItems.Contains(item);
+        internal bool PresentationHasItem(RedPacketAvailableItem item)=>availableItems.Contains(item) ||
+            item != null && item.IsComposite && ReferenceEquals(selectedStack,item);
+        internal RedPacketAvailableItem PresentationSelectChoice(RedPacketItemChoice choice)
+        {
+            var current = new HashSet<RedPacketAvailableItem>(availableItems);
+            if (choice == null || choice.Sources.Any(source => !current.Contains(source))) return null;
+            var selection = choice.CreateSelection();
+            if (selectedStack != null) selectedStack.Selected = 0;
+            selectedStack = selection;
+            return selection;
+        }
         internal void PresentationQuantity(RedPacketAvailableItem item,int quantity)
         {
-            if(!availableItems.Contains(item))throw new InvalidOperationException("RedPacketItemContextExpired");
+            if(!PresentationHasItem(item))throw new InvalidOperationException("RedPacketItemContextExpired");
             if(selectedStack!=item&&selectedStack!=null)selectedStack.Selected=0;
             selectedStack=item;item.Selected=quantity;
         }

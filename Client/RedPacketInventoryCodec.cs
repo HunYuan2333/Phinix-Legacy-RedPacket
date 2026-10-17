@@ -78,6 +78,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return new InventoryItemPresentation
             {
                 Label = label,
+                IconDefName = payload.DefName,
                 GroupKey = payload.DefName.Length + ":" + payload.DefName + stuffName.Length + ":" + stuffName + ":" + payload.Quality,
                 ItemsPerUnit = payload.StatePayload != null && payload.StatePayload.Length > 0 ? payload.DeliveryStackCount : 1
             };
