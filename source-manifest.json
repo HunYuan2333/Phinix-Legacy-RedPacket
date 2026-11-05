@@ -45,7 +45,7 @@
     "Contracts/RedPacketProtocol.cs": "5302205f5dc51651e6162c10d724d9e9e71fddc1ab6fb375aaf9d218b355b90a",
     "Contracts/RedPacketType.cs": "97833e372920ccef9694d579f4d9b1022d742651468f9b4f1c2e6774d4436b2a",
     "Directory.Build.props": "75cca0fa98bc028e2a981663db825ebcbb8143a4b114165eb2e2be83f3058c51",
-    "README.md": "d5bad29431c981cbd64c546d74a2554088f48a6953ecac85a2a13a5cafe62035",
+    "README.md": "9dfa5f38e4f241783abd8545d0dc696f692be30d352b867ca165c4b7ec396493",
     "README.zh-CN.md": "4941827c5bd375e2e1686a6ea9a1463c13a18f4852483dd0b1eb9abb6aa69cc6",
     "Tests/RedPacketPerformanceTests/Directory.Build.props": "1a6d1897564c3ad827b3c8502efa0d636fa0acea1c56afe98f9eb8fc53537591",
     "Tests/RedPacketPerformanceTests/Program.cs": "65b693ad16f050c5cc54b210513178cdec0a689eec51cba54255403c5a90ab2c",
@@ -84,6 +84,7 @@
     "docs/RedPacket-Multi-Stack-Send-Feasibility-2026-10-17.md": "c38a09cf2fd86dfc51dde290bc5cdbb0ceab76316a6b38a266bb7a0110a5febb",
     "docs/RedPacket-Random-Stack-Sending-2026-10-17.md": "55729683923fb50eac6d1ea16bd0b64517bbfda79a71b116fa4b8a1ace5b6fd8",
     "docs/RedPacket-Capacity-One-Grouping-2026-10-17.md": "c0a4ca2ba3cf5c3150eeed406381f97a15b869f2fa5417b294cac093d6e81ab0",
-    "docs/Release-1.2.8-2026-10-17.md": "234f9169f7d42ebcca1b63c9a926094855f15a50e52bbb38d330e5f547f6e4f2"
+    "docs/Release-1.2.8-2026-10-17.md": "234f9169f7d42ebcca1b63c9a926094855f15a50e52bbb38d330e5f547f6e4f2",
+    "docs/RedPacket-Reliability-Roadmap.md": "99423cfe4616654e1801e1e6d125a3b7f4299c19bb585bbd981030eba71f3f3c"
   }
 }

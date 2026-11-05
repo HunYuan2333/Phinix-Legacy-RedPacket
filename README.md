@@ -123,3 +123,7 @@ Run `dotnet run --project Tests/RedPacketRepairTests/RedPacketRepairTests.csproj
 ## T4 local theme integration
 
 The unpublished 1.1.2 candidate keeps one binary for client APIs 1.9/current. A private theme adapter binds ordinary current theme registration and immutable palettes; 1.9 uses plugin defaults. UI/business code has no version branches. Online publication remains deferred. See Client-Compatibility.md; game acceptance is pending.
+
+## 后续可靠性与容量工作
+
+见 [红包可靠性 RoadMap](docs/RedPacket-Reliability-Roadmap.md)：RP-REL-01 优先记录原木等可等价物品的紧凑库存表示，避免大额领取预拆分超过 1000 条；尚未实施。
