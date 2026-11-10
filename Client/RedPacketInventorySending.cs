@@ -39,6 +39,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (inventoryRead != null) inventoryRead.InventoryChanged -= OnInventoryScopeChanged;
             inventoryRead = read;
             reservations = api;
+            receiveRetry = storagePath == null ? null : new RedPacketReceiveRetry(storagePath);
             sendStore = storagePath == null ? null : new RedPacketInventorySendStore(storagePath);
             if (inventoryRead != null) inventoryRead.InventoryChanged += OnInventoryScopeChanged;
             inventoryScopeDirty = true;
@@ -307,7 +308,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             List<InventoryItem> items = new List<InventoryItem>();
             for (int i = 0; i < multiplier; i++)
                 items.AddRange(RedPacketInventoryCodec.BuildItems(record.Template.ToSnapshot(record.Template.StackCount),
-                    amount, record.Template.DefName, record.ReturnStackLimit));
+                    amount, record.Template.DefName, record.ReturnStackLimit, false));
             return new InventoryDeposit
             {
                 DepositId = "redpacket-send-return:" + kind + ":" + record.PacketId,

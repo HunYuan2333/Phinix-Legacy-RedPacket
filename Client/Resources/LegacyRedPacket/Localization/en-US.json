@@ -4,7 +4,7 @@
   "display": {
     "name": "Red packets",
     "summary": "Send and claim legacy red packets through Phinix inventory. Before updating this plugin, update the Phinix Rework main mod on Steam to version 0.10.5 or later. Wait for the download to finish, then restart the game.",
-    "changelog": "1.2.9: Correct the minimum main-mod requirement to 0.10.5. Includes inventory icons, compact sending, grouped ordinary items and chunks, and automatic random source selection for one packet. Weapons and armor stay separate. Sending across multiple inventory records is not available."
+    "changelog": "1.2.10 local test: Fix large red-packet inventory deposits and historical claim deduplication. Failed receiving can pause with manual retry. Adds detailed rejection diagnostics. Tested with the SQLite inventory main-mod candidate; in-game verification is still pending."
   },
   "strings": {
     "Phinix_legacyRedpacket_tab": "Red packets",
@@ -123,6 +123,9 @@
     "Phinix_legacyRedpacket_uiGroupedSendPending": "Items are grouped for browsing. Sending from a combined entry is not available yet.",
     "Phinix_legacyRedpacket_uiGroupedInventoryPending": "These inventory records must currently be sent separately.",
     "Phinix_legacyRedpacket_uiRandomStackState": "Sources are picked automatically. All sent items use the state of one randomly selected source stack.",
-    "Phinix_legacyRedpacket_uiMixedSendScope": "Map: {0} available to send; inventory counted separately"
+    "Phinix_legacyRedpacket_uiMixedSendScope": "Map: {0} available to send; inventory counted separately",
+    "Phinix_legacyRedpacket_receivePaused": "Red packet receipt is incomplete and processing is paused. Check inventory, map and required mods, then retry in red packet settings. An uncertain delivery requires reconciliation first.",
+    "Phinix_legacyRedpacket_receiveRetry": "Retry paused receipt",
+    "Phinix_legacyRedpacket_receiveRetryHelp": "Use after fixing the problem and checking your items. An uncertain delivery stays paused for reconciliation."
   }
 }

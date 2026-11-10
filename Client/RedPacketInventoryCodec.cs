@@ -33,6 +33,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
         [DataMember]
         public RedPacketInventoryPayload InnerItem { get; set; }
 
+        [DataMember(EmitDefaultValue = false)]
+        public bool RepeatedStacks { get; set; }
+
         public static RedPacketInventoryPayload FromSnapshot(TradeItemSnapshot snapshot, int deliveryStackCount)
         {
             if (snapshot == null) return null;
@@ -85,15 +88,27 @@ namespace Phinix.LegacyRedPacketExtension.Client
         }
 
         public bool CanStore(InventoryItem item)
+        { return TryValidate(item, out _); }
+
+        internal bool TryValidate(InventoryItem item, out string reason)
         {
+            reason = null;
             if (item == null || item.CodecId != CodecId || item.CodecVersion != Version ||
-                item.Quantity < 1 || item.Payload == null) return false;
+                item.Quantity < 1 || item.Payload == null)
+            { reason = "Invalid red packet codec, version or item quantity."; return false; }
             try
             {
                 RedPacketInventoryPayload payload = Decode(item.Payload);
-                return payload.InnerItem == null && CanRestore(payload, item.Quantity);
+                if (payload.InnerItem != null) { reason = "Minified items cannot be stored as red packet rewards."; return false; }
+                if (DefDatabase<ThingDef>.GetNamedSilentFail(payload.DefName) == null)
+                { reason = "Item definition is unavailable: " + payload.DefName; return false; }
+                if (!string.IsNullOrEmpty(payload.StuffDefName) && DefDatabase<ThingDef>.GetNamedSilentFail(payload.StuffDefName) == null)
+                { reason = "Material definition is unavailable: " + payload.StuffDefName; return false; }
+                if (!CanRestore(payload, item.Quantity))
+                { reason = "Red packet state or stack bounds are invalid: item=" + payload.DefName + ", units=" + item.Quantity + ", deliveryStack=" + payload.DeliveryStackCount + ", sourceStack=" + payload.StackCount + ", stateCodec=" + payload.StateCodecId; return false; }
+                return true;
             }
-            catch (Exception) { return false; }
+            catch (Exception error) { reason = "Red packet payload could not be decoded: " + error.GetType().Name; return false; }
         }
 
         private static bool CanRestore(RedPacketInventoryPayload payload, long quantity)
@@ -104,8 +119,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 (!string.IsNullOrEmpty(payload.StuffDefName) &&
                  DefDatabase<ThingDef>.GetNamedSilentFail(payload.StuffDefName) == null)) return false;
             if (payload.StatePayload != null && payload.StatePayload.Length > 0 &&
-                (quantity != 1 || payload.StackCount < 1 || payload.DeliveryStackCount < 1 ||
-                 payload.DeliveryStackCount > payload.StackCount || !string.Equals(payload.StateCodecId,
+                ((quantity != 1 && !payload.RepeatedStacks) || (payload.RepeatedStacks && quantity > int.MaxValue / Math.Max(1, payload.DeliveryStackCount)) || payload.StackCount < 1 || payload.DeliveryStackCount < 1 ||
+                 payload.DeliveryStackCount > payload.StackCount || payload.DeliveryStackCount > Math.Max(1, def.stackLimit) || !string.Equals(payload.StateCodecId,
                     StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))) return false;
             return true;
         }
@@ -113,7 +128,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public string GetAggregationKey(InventoryItem item)
         {
             RedPacketInventoryPayload payload = Decode(item.Payload);
-            if (payload.StatePayload != null && payload.StatePayload.Length > 0) return null;
+            // RepeatedStacks represents identical complete legal stacks. Each unit
+            // still materializes one whole stack; legacy singular state stays indivisible.
+            if (payload.StatePayload != null && payload.StatePayload.Length > 0 && !payload.RepeatedStacks) return null;
             using (SHA256 sha = SHA256.Create())
                 return Convert.ToBase64String(sha.ComputeHash(item.Payload));
         }
@@ -128,6 +145,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public Thing Materialize(InventoryEntry entry, int count)
         {
             RedPacketInventoryPayload payload = Decode(entry.Payload);
+            if (!CanRestore(payload, entry.Quantity)) throw new InvalidOperationException("Red packet state or current stack limit cannot be restored safely.");
             if (count < 1 || count > MaximumStackCount(entry)) throw new ArgumentOutOfRangeException(nameof(count));
             Thing thing = payload.StatePayload != null && payload.StatePayload.Length > 0
                 ? TradeItemConverter.ConvertStatefulStackFromSnapshot(payload.ToSnapshot(payload.StackCount), payload.DeliveryStackCount)
@@ -143,27 +161,32 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return InventoryDropDelivery.DeliverThings(new[] { thing }, map, dropSpot);
         }
 
-        internal static byte[] Encode(TradeItemSnapshot snapshot, int deliveryStackCount)
+        internal static byte[] Encode(TradeItemSnapshot snapshot, int deliveryStackCount, bool repeatedStacks = false)
         {
-            return Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(
-                RedPacketInventoryPayload.FromSnapshot(snapshot, deliveryStackCount)));
+            var payload = RedPacketInventoryPayload.FromSnapshot(snapshot, deliveryStackCount);
+            payload.RepeatedStacks = repeatedStacks;
+            return Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(payload));
         }
 
-        internal static IList<InventoryItem> BuildItems(TradeItemSnapshot template, int amount, string label, int stackLimit)
+        internal static IList<InventoryItem> BuildItems(TradeItemSnapshot template, int amount, string label, int stackLimit, bool compact = true)
         {
+            if (template == null || amount < 1 || stackLimit < 1)
+                throw new InvalidOperationException("Invalid red packet inventory quantity or template.");
             bool stateful = template.StatePayload != null && template.StatePayload.Length > 0;
             List<InventoryItem> items = new List<InventoryItem>();
             int remaining = amount;
             while (remaining > 0)
             {
                 int count = stateful ? Math.Min(remaining, Math.Max(1, stackLimit)) : remaining;
+                int repetitions = stateful && compact ? remaining / count : 1;
+                bool repeated = repetitions > 1;
                 items.Add(new InventoryItem
                 {
                     CodecId = "legacy-redpacket.template", CodecVersion = 1,
-                    Payload = Encode(template, count), Quantity = stateful ? 1 : count,
+                    Payload = Encode(template, count, repeated), Quantity = stateful ? repetitions : count,
                     Label = count > 1 ? label + " × " + count : label
                 });
-                remaining -= count;
+                remaining -= checked(count * repetitions);
                 if (items.Count > 1000) throw new InvalidOperationException("Red packet inventory delivery exceeds its stack limit.");
             }
             return items;

@@ -72,6 +72,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private IInventoryDepositApi inventory;
         private readonly RedPacketSummaryQueue senderSummaries = new RedPacketSummaryQueue();
         private DateTime nextSummaryWarningUtc;
+        private RedPacketReceiveRetry receiveRetry;
+        public bool ReceivePaused => receiveRetry?.Current?.Paused == true;
+        public void RetryPausedReceive() { receiveRetry?.Retry(); }
         private bool retryCurrentMessage;
         private string lastRetryError;
         private DateTime nextRetryLogUtc;
@@ -919,15 +922,32 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 retryCurrentMessage = false;
                 try
                 {
+                    if (receiveRetry == null || !receiveRetry.Begin(message, LocalUuid, DateTime.UtcNow, InventoryDeliveryPreference.UsesInventory(settingsContext?.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop)))) break;
+                }
+                catch (Exception error)
+                {
+                    if (lastRetryError != "recovery-storage")
+                        log?.Invoke("[RedPacket] Receive processing paused: recovery storage unavailable. " + error.Message, LogLevel.ERROR);
+                    lastRetryError = "recovery-storage";
+                    break;
+                }
+                try
+                {
                     // RP-08: 单消息异常隔离
                     bool changed = ProcessProtocolMessageSafe(message, ref newPacketCount, ref lastNewPacket);
                     if (changed) stateChanged = true;
                 }
                 catch (Exception ex)
                 {
-                    HoldCurrentMessage("[RedPacket] Message processing failed; cursor held for retry: " + ex);
+                    HoldCurrentMessage("[RedPacket] Message processing failed: " + ex.Message, true, !InventoryDeliveryPreference.UsesInventory(settingsContext?.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop)));
                 }
                 if (retryCurrentMessage) break;
+                try { receiveRetry.Complete(); }
+                catch (Exception error)
+                {
+                    HoldCurrentMessage("[RedPacket] Receive recovery completion failed: " + error.Message, true, true);
+                    break;
+                }
                 relay.AcknowledgeIncoming();
                 lastRetryError = null;
                 processed++;
@@ -1391,7 +1411,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (packet == null || amount < 1 || packet.Template == null ||
                 IsMinifiedTemplate(packet.Template) || IsUnknownTemplate(packet.Template))
             {
-                HoldCurrentMessage("[RedPacket] Reward cannot be deposited; relay cursor is held.");
+                HoldCurrentMessage("[RedPacket] Reward cannot be deposited; relay cursor is held.", true);
                 return false;
             }
             bool useInventory = InventoryDeliveryPreference.UsesInventory(
@@ -1403,7 +1423,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 HoldCurrentMessage("[RedPacket] Inventory is unavailable; relay cursor is held.");
                 return false;
             }
-            InventoryDepositResult result = inventory.TryDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
+            if (HasHistoricalRewardReceipt(packet, amount, claimerUuid)) return true;
+            var deposit = BuildRewardDeposit(packet, amount, claimerUuid);
+            InventoryDepositResult result = inventory.TryDeposit(deposit);
             if (result.Status == InventoryDepositStatus.Conflict &&
                 inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid, false)).Status == InventoryDepositStatus.AlreadyCommitted)
                 return true; // receipt created before legal-stack splitting was introduced
@@ -1413,7 +1435,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     ", amount=" + amount + ", status=" + result.Status + ".", LogLevel.INFO);
                 return true;
             }
-            HoldCurrentMessage("[RedPacket] Reward deposit failed; relay cursor is held: " + result.Reason);
+            string detail = result.Reason;
+            if (result.FailureCode == InventoryFailureCode.CodecUnavailable)
+            {
+                var codec = new RedPacketInventoryCodec();
+                foreach (var item in deposit.Items)
+                    if (!codec.TryValidate(item, out string rejected)) { detail += " " + rejected; break; }
+            }
+            HoldCurrentMessage("[RedPacket] Reward deposit failed; relay cursor is held: " + detail, result.Status != InventoryDepositStatus.Unavailable);
             return false;
         }
 
@@ -1423,7 +1452,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             try { things = CreateThingsFromTemplate(packet.Template, amount); }
             catch (Exception exception)
             {
-                HoldCurrentMessage("[RedPacket] Reward could not be restored without loss: " + exception.Message);
+                HoldCurrentMessage("[RedPacket] Reward could not be restored without loss: " + exception.Message, true);
                 return false;
             }
             if (things.Count == 0)
@@ -1443,7 +1472,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (!delivery.Succeeded)
             {
                 if (delivery.Status == InventoryDeliveryStatus.Rejected) DiscardUnclaimed(things);
-                HoldCurrentMessage("[RedPacket] Direct reward delivery failed: " + delivery.Reason);
+                HoldCurrentMessage("[RedPacket] Direct reward delivery failed: " + delivery.Reason, true, delivery.Status != InventoryDeliveryStatus.Rejected);
                 return false;
             }
 
@@ -1457,6 +1486,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private bool IsRewardAlreadyCommitted(RedPacket packet, int amount, string claimerUuid)
         {
             if (packet == null || amount < 1 || packet.Template == null || inventory == null) return false;
+            if (HasHistoricalRewardReceipt(packet, amount, claimerUuid)) return true;
             InventoryDepositResult result = inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
             if (result.Status == InventoryDepositStatus.AlreadyCommitted) return true;
             if (result.Status == InventoryDepositStatus.Conflict &&
@@ -1467,7 +1497,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return false;
         }
 
-        private InventoryDeposit BuildRewardDeposit(RedPacket packet, int amount, string claimerUuid, bool splitStatefulStacks = true)
+        private bool HasHistoricalRewardReceipt(RedPacket packet, int amount, string claimerUuid)
+        {
+            // Fingerprints contain the original item list. Check both historical
+            // representations before writing a compact plan under the same deposit ID.
+            if (inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid, false, false)).Status == InventoryDepositStatus.AlreadyCommitted)
+                return true;
+            int limit = Math.Max(1, DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName)?.stackLimit ?? 1);
+            return ((long)amount - 1) / limit + 1 <= 1000 &&
+                inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid, true, false)).Status == InventoryDepositStatus.AlreadyCommitted;
+        }
+
+        private InventoryDeposit BuildRewardDeposit(RedPacket packet, int amount, string claimerUuid, bool splitStatefulStacks = true, bool compact = true)
         {
             string senderName = packet.SenderDisplayName;
             if (string.IsNullOrEmpty(senderName)) senderName = GetDisplayName(packet.SenderUuid);
@@ -1480,7 +1521,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 OriginUserId = LimitInventoryOrigin(packet.SenderUuid, 100),
                 OriginDisplayName = LimitInventoryOrigin(senderName, 200),
                 Items = RedPacketInventoryCodec.BuildItems(packet.Template, amount, GetPacketItemLabel(packet),
-                    splitStatefulStacks ? Math.Max(1, DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName)?.stackLimit ?? 1) : amount)
+                    splitStatefulStacks ? Math.Max(1, DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName)?.stackLimit ?? 1) : amount, compact)
             };
         }
 
@@ -1490,9 +1531,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return value.Length <= maximumLength ? value : value.Substring(0, maximumLength);
         }
 
-        private void HoldCurrentMessage(string message)
+        private void HoldCurrentMessage(string message, bool permanent = false, bool uncertain = false)
         {
             retryCurrentMessage = true;
+            try { receiveRetry?.Fail(message, permanent, uncertain); }
+            catch (Exception) { permanent = true; }
+            if (ReceivePaused)
+                Messages.Message("Phinix_legacyRedpacket_receivePaused".Localize(), MessageTypeDefOf.RejectInput);
             DateTime now = DateTime.UtcNow;
             if (message == lastRetryError && now < nextRetryLogUtc) return;
             lastRetryError = message;

@@ -126,4 +126,4 @@ The unpublished 1.1.2 candidate keeps one binary for client APIs 1.9/current. A 
 
 ## 后续可靠性与容量工作
 
-见 [红包可靠性 RoadMap](docs/RedPacket-Reliability-Roadmap.md)：RP-REL-01 优先记录原木等可等价物品的紧凑库存表示，避免大额领取预拆分超过 1000 条；尚未实施。
+见 [红包可靠性 RoadMap](docs/RedPacket-Reliability-Roadmap.md)：RP-REL-01 优先记录原木等可等价物品的紧凑库存表示，避免大额领取预拆分超过 1000 条。紧凑表示和持久有限重试已实现，双版本游戏验收及剩余门槛见路线图。

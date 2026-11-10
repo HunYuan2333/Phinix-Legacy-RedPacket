@@ -30,6 +30,7 @@
     <Compile Include="RedPacketInventorySending.cs" />
     <Compile Include="RedPacketLimits.cs" />
     <Compile Include="RedPacketRelay.cs" />
+    <Compile Include="RedPacketReceiveRetry.cs" />
     <Compile Include="RedPacketSettings.cs" />
     <Compile Include="RedPacketSettingsPanel.cs" />
     <Compile Include="RedPacketSnapshots.cs" />
