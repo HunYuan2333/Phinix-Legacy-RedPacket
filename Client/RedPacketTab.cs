@@ -843,7 +843,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (selectedStack.IsInventory)
                 {
                     // Bound materialization before reserving a large aggregatable entry.
-                    if (selectedStack.ReservationQuantity > (long)Math.Max(1, selectedStack.ThingDef.stackLimit) * 1000)
+                    if (selectedStack.ReservationQuantity > selectedStack.MaximumReservationUnits)
                         throw new InvalidOperationException("The red packet selection exceeds the transfer stack limit.");
                     InventoryReservationResult reserved = inventoryReservations.TryReserve(new InventoryReservationRequest
                     {

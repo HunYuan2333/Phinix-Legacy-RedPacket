@@ -36,7 +36,31 @@ internal static partial class Program
                 {
                     var ledger=new InventoryLedger();ledger.Restore(store.Load("game-b"));
                     Check(ActualUnits(ledger)==999999&&ledger.PrepareDeposit(deposit,codecs,out _).Status==InventoryDepositStatus.AlreadyCommitted);
+                    var entry=ledger.Snapshot().Single(e=>e.Quantity>1);
+                    var preview=(Verse.Thing)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Verse.Thing));
+                    preview.def=Verse.DefDatabase<Verse.ThingDef>.GetNamedSilentFail("WoodLog");preview.def.category=Verse.ThingCategory.Item;preview.def.thingClass=typeof(Verse.Thing);preview.def.label="Wood";preview.stackCount=75;
+                    var selection=RedPacketAvailableItem.FromInventory(entry,preview);
+                    Check(selection.Count==999975);selection.Selected=76;
+                    Check(selection.ReservationQuantity==2&&selection.MaximumReservationUnits==1000);
+                    var reserved=ledger.PrepareReservation(new InventoryReservationRequest{OperationId="partial-packet",OwnerExtensionId="builtin.legacy-redpacket",Purpose="redpacket.send",Lines=new[]{new InventoryReservationLine{EntryId=entry.EntryId,Quantity=selection.ReservationQuantity}}},out var next);
+                    Check(reserved.Succeeded&&store.TryAppend(next));ledger.Publish(next);
+                    var committed=ledger.PrepareReservationResolution(reserved.Reservation.ReservationId,InventoryReservationResolution.Commit,"synthetic relay acceptance",out next);
+                    Check(committed.Succeeded&&store.TryAppend(next));ledger.Publish(next);
+                    var returned=new InventoryDeposit{DepositId="redpacket-send-return:unselected:partial-packet",Source="legacy-redpacket",Items=RedPacketInventoryCodec.BuildItems(template,74,"Wood",75,false)};
+                    Check(ledger.PrepareDeposit(returned,codecs,out next).Succeeded&&store.TryAppend(next));ledger.Publish(next);
+                    Check(ActualUnits(ledger)==999999-76&&ledger.PrepareDeposit(returned,codecs,out _).Status==InventoryDepositStatus.AlreadyCommitted);
+                    var singular=ledger.Snapshot().Single(e=>e.AggregationKey==null&&FrameworkSerialization.DeserializePayload<RedPacketInventoryPayload>(System.Text.Encoding.UTF8.GetString(e.Payload)).DeliveryStackCount==74);
+                    preview.stackCount=74;var oldSelection=RedPacketAvailableItem.FromInventory(singular,preview);oldSelection.Selected=1;
+                    Check(oldSelection.Count==74&&oldSelection.ReservationQuantity==1);
+                    var plain=entry.Clone();plain.CodecId="foreign.codec";plain.Quantity=100;preview.stackCount=75;
+                    var plainSelection=RedPacketAvailableItem.FromInventory(plain,preview);plainSelection.Selected=76;
+                    Check(plainSelection.Count==100&&plainSelection.ReservationQuantity==76);
                 }
+                foreach(var state in new[]{InventoryReservationState.Reserved,InventoryReservationState.Uncertain,InventoryReservationState.Committed})
+                    Check(RedPacketStateMachine.ShouldTrackInventoryReservation(new InventoryReservation{OwnerExtensionId="builtin.legacy-redpacket",State=state}));
+                foreach(var state in new[]{InventoryReservationState.Restored,InventoryReservationState.Abandoned})
+                    Check(!RedPacketStateMachine.ShouldTrackInventoryReservation(new InventoryReservation{OwnerExtensionId="builtin.legacy-redpacket",State=state}));
+                Check(!RedPacketStateMachine.ShouldTrackInventoryReservation(new InventoryReservation{OwnerExtensionId="other",State=InventoryReservationState.Reserved}));
             }
         }
         finally{if(Directory.Exists(directory))Directory.Delete(directory,true);}

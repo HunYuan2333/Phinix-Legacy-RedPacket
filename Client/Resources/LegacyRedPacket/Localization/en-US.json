@@ -4,7 +4,7 @@
   "display": {
     "name": "Red packets",
     "summary": "Send and claim legacy red packets through Phinix inventory. Before updating this plugin, update the Phinix Rework main mod on Steam to version 0.10.5 or later. Wait for the download to finish, then restart the game.",
-    "changelog": "1.2.10 local test: Fix large red-packet inventory deposits and historical claim deduplication. Failed receiving can pause with manual retry. Adds detailed rejection diagnostics. Tested with the SQLite inventory main-mod candidate; in-game verification is still pending."
+    "changelog": "1.2.11 local test: Correct item counts and reservation units when sending from compact shared inventory. Abandoned reservations no longer enter recovery. Preserves claim deduplication and legacy data."
   },
   "strings": {
     "Phinix_legacyRedpacket_tab": "Red packets",

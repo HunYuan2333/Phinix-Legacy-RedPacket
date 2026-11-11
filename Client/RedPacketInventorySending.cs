@@ -60,9 +60,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 inventoryRead?.GetStatus().CanWrite != true) return;
             inventoryScopeDirty = false;
             custodyRecoveryFaultCount = 0;
-            InventoryReservation[] current = reservations.GetReservations()
-                .Where(item => item.OwnerExtensionId == "builtin.legacy-redpacket" &&
-                    item.State != InventoryReservationState.Restored).ToArray();
+            InventoryReservation[] current = reservations.GetReservations().Where(ShouldTrackInventoryReservation).ToArray();
             HashSet<string> ids = new HashSet<string>(current.Select(item => item.ReservationId));
             foreach (string id in inventorySends.Keys.Where(id => !ids.Contains(id)).ToArray())
                 inventorySends.Remove(id);
@@ -132,6 +130,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             UpdatePendingInventorySendCount();
             return true;
+        }
+
+        internal static bool ShouldTrackInventoryReservation(InventoryReservation item)
+        {
+            return item != null && item.OwnerExtensionId == "builtin.legacy-redpacket" &&
+                (item.State == InventoryReservationState.Reserved || item.State == InventoryReservationState.Uncertain ||
+                 item.State == InventoryReservationState.Committed);
         }
 
         private static List<string> BuildInventoryBroadcast(RedPacket packet)

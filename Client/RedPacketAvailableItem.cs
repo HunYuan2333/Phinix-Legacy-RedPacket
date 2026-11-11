@@ -12,6 +12,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
     {
         private readonly StackedThings physical;
         private readonly Thing preview;
+        private readonly int itemsPerUnit;
+        private readonly long maximumReservationUnits;
         private int selected;
         internal IReadOnlyList<RedPacketAvailableItem> CompositeSources { get; private set; }
         internal bool IsComposite => CompositeSources != null;
@@ -23,17 +25,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
             this.physical = physical;
             Entry = entry;
             this.preview = preview;
+            itemsPerUnit = OwnCodec ? checked((int)(new RedPacketInventoryCodec().PresentItem(entry)?.ItemsPerUnit ?? 1)) : 1;
+            itemsPerUnit = Math.Max(1, itemsPerUnit);
+            maximumReservationUnits = entry == null ? 0 : 1000L * (OwnCodec
+                ? new RedPacketInventoryCodec().MaximumStackCount(entry) : Math.Max(1, preview.def.stackLimit));
         }
 
         public InventoryEntry Entry { get; }
         public bool IsInventory => Entry != null;
         private bool Combinable => !string.IsNullOrEmpty(Entry?.AggregationKey);
+        private bool OwnCodec => Entry?.CodecId == "legacy-redpacket.template" && Entry.CodecVersion == 1;
         // An opaque entry can represent one complete stack (e.g. 1000 rice),
-        // whereas an aggregatable entry counts individual items.
+        // whereas an aggregatable entry may count repeated complete stacks.
         public int Count => IsInventory
-            ? (int)Math.Min(int.MaxValue, Combinable ? Entry.Quantity : preview.stackCount)
+            ? Combinable ? (Entry.Quantity > int.MaxValue / itemsPerUnit ? int.MaxValue : (int)(Entry.Quantity * itemsPerUnit)) : preview.stackCount
             : (int)Math.Min(int.MaxValue, physical.Things.Sum(t => (long)Math.Max(0, t.stackCount)));
-        public long ReservationQuantity => Combinable ? Selected : Entry.Quantity;
+        public long ReservationQuantity => Combinable ? ((long)Selected + itemsPerUnit - 1) / itemsPerUnit : Entry.Quantity;
+        internal long MaximumReservationUnits => maximumReservationUnits;
         public string Label => IsInventory
             ? preview.LabelCapNoCount + "  [" + "Phinix_legacyRedpacket_inventorySource".Localize().ToString() + "]"
             : physical.Label + ((physical as RedPacketStackTemplate.PhysicalGroup)?.RestrictionKey is string key
