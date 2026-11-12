@@ -255,14 +255,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void ClearItems()
         {
-            groupingJob?.Dispose();groupingJob=null;
-            if(pendingItems!=null){foreach(var item in pendingItems)item.Dispose();pendingItems=null;}
-            foreach (RedPacketAvailableItem item in availableItems) item.Dispose();
+            var oldGrouping = groupingJob;
+            var oldItems = availableItems.Concat(pendingItems ?? Enumerable.Empty<RedPacketAvailableItem>()).Distinct().ToArray();
+            groupingJob = null; pendingItems = null;
             availableItems.Clear();
             filteredItems.Clear();
             selectedStack = null;
+            itemsGame = null; groupingUuid = null;
             itemsDirty = true;
+            ReleaseItemCache(oldGrouping);
+            foreach (var item in oldItems) ReleaseItemCache(item);
             presentation?.InvalidateItems();
+        }
+
+        private void ReleaseItemCache(IDisposable owned)
+        {
+            try { owned?.Dispose(); }
+            catch (Exception error) { log?.Invoke("[RedPacket] Item cache release failed: " + error, LogLevel.WARNING); }
         }
 
         private void RefreshAvailableItems()

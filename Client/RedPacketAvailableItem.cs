@@ -11,7 +11,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
     internal sealed class RedPacketAvailableItem : IDisposable
     {
         private readonly StackedThings physical;
-        private readonly Thing preview;
+        private Thing preview;
+        private Game previewGame;
+        private bool disposed;
         private readonly int itemsPerUnit;
         private readonly long maximumReservationUnits;
         private int selected;
@@ -25,6 +27,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             this.physical = physical;
             Entry = entry;
             this.preview = preview;
+            previewGame = entry == null ? null : Current.Game;
             itemsPerUnit = OwnCodec ? checked((int)(new RedPacketInventoryCodec().PresentItem(entry)?.ItemsPerUnit ?? 1)) : 1;
             itemsPerUnit = Math.Max(1, itemsPerUnit);
             maximumReservationUnits = entry == null ? 0 : 1000L * (OwnCodec
@@ -105,7 +108,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return IsInventory ? Enumerable.Empty<PoppedThing>() : physical.PopSelectedWithOrigins();
         }
 
-        public void Dispose() { if (IsInventory) Discard(new[] { preview }); }
+        public void Dispose()
+        {
+            if (!IsInventory || disposed) return;
+            disposed = true;
+            Thing owned = preview; Game game = previewGame;
+            preview = null; previewGame = null;
+            // These are detached UI previews, never deposited/world items. Once
+            // their Game is gone, Destroy would consult an invalid world.
+            if (game != null && ReferenceEquals(game, Current.Game)) Discard(new[] { owned });
+        }
 
         internal static void Discard(IEnumerable<Thing> things)
         {

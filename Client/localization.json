@@ -4,13 +4,13 @@
   "resources": [
     {
       "path": "Resources/LegacyRedPacket/Localization/en-US.json",
-      "length": 10505,
-      "sha256": "d8f2f8ff0e4341a68b8925d7829279f7b2ee665eaaee1f28ca465b611ec23f0b"
+      "length": 10491,
+      "sha256": "9458585631ad5ad92f83e866560c621141cb606fd1f45887252d106356421bb6"
     },
     {
       "path": "Resources/LegacyRedPacket/Localization/zh-CN.json",
-      "length": 10359,
-      "sha256": "2000381ecba85ad7df29d41690a53b5796faddabefdc52b89634f0476d7b8924"
+      "length": 10343,
+      "sha256": "0021b06608117b7e07b3ae3e585a4cb91602f3416bb415e6714382506cce3a60"
     }
   ],
   "localization": {

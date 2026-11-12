@@ -52,9 +52,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
         {
             if (!ReferenceEquals(inventoryGame, Current.Game))
             {
-                Clear();
                 inventoryGame = Current.Game;
                 inventoryScopeDirty = true;
+                Clear();
             }
             if (!inventoryScopeDirty || reservations == null || sendStore == null ||
                 inventoryRead?.GetStatus().CanWrite != true) return;
