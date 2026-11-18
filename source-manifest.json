@@ -80,7 +80,7 @@
     "check-source.py": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e",
     "ci/INDEX-NOTIFICATION.md": "a64a05fee2bd8dbd5cec1088a19ae1b39b69586681becc1f6f0d80aa370b3784",
     "ci/build.py": "adad25f962d2b19b460bb60c0db565f7002bc186e9f7e792e778fd419941ed12",
-    "ci/config.json": "e3bc7ed1068f1d427335cb896d1e3713f9fa5e998ba4e3c1e771a4389f614b74",
+    "ci/config.json": "0e2ca93c6ec81a5e1dda244ddc8193b553cd6bb8c70bbf20c6156a9a37420106",
     "ci/fetch_references.py": "c77a7b80ba646ed0ac95501a2763e6599dc584d447b6f1115bca27f743e00bdb",
     "ci/notify_index.py": "895680edf54f3ae2bfe1e139421d500725ba71c9d30d48437829377acfea7d9a",
     "ci/publish.py": "455e3936ed9a5b03273919b072aa11ec6607ccee2706516e383a566f8d9c9751",
